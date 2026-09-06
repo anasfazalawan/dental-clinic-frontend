@@ -1,23 +1,21 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   Calendar,
   Clock,
-  User,
   Edit2,
   Trash2,
   Phone,
-  Mail,
-  FileText,
-  AlertCircle,
+  ArrowUpRight,
 } from 'lucide-react';
 import { QuickStatusSelect } from './QuickStatusSelect.jsx';
 import { formatDate, formatTime } from '../../utils/formatters.js';
 
-export const AppointmentTable = ({
+export const AppointmentTable = memo(({
   appointments,
   onEdit,
   onDelete,
   onStatusChange,
+  onManage,
 }) => {
   const getPatientInitials = (name) => {
     if (!name) return 'PT';
@@ -167,25 +165,50 @@ export const AppointmentTable = ({
 
               {/* Actions */}
               <td style={{ textAlign: 'right' }}>
-                <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
+                {onManage ? (
                   <button
-                    onClick={() => onEdit(apt)}
-                    className="btn-icon"
-                    title="Edit Appointment"
-                    aria-label={`Edit appointment for ${apt.patientName}`}
+                    type="button"
+                    onClick={() => onManage(apt)}
+                    className="btn btn-outline btn-sm"
+                    style={{
+                      fontSize: '0.775rem',
+                      padding: '4px 10px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: '#0284c7',
+                      borderColor: '#bae6fd',
+                      borderRadius: '6px',
+                    }}
+                    title={`Manage appointment for ${apt.patientName} on Appointments page`}
+                    aria-label={`Manage appointment for ${apt.patientName}`}
                   >
-                    <Edit2 size={15} />
+                    <span>Manage</span>
+                    <ArrowUpRight size={13} />
                   </button>
-                  <button
-                    onClick={() => onDelete(apt)}
-                    className="btn-icon"
-                    style={{ color: '#ef4444' }}
-                    title="Cancel / Delete Appointment"
-                    aria-label={`Delete appointment for ${apt.patientName}`}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
+                ) : (
+                  <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => onEdit && onEdit(apt)}
+                      className="btn-icon"
+                      title="Edit Appointment"
+                      aria-label={`Edit appointment for ${apt.patientName}`}
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete && onDelete(apt)}
+                      className="btn-icon"
+                      style={{ color: '#ef4444' }}
+                      title="Cancel / Delete Appointment"
+                      aria-label={`Delete appointment for ${apt.patientName}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
           ))}
@@ -193,4 +216,6 @@ export const AppointmentTable = ({
       </table>
     </div>
   );
-};
+});
+
+AppointmentTable.displayName = 'AppointmentTable';

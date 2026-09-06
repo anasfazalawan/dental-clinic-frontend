@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
   CalendarCheck,
+  CalendarDays,
   Clock,
+  CheckCircle2,
   AlertCircle,
-  TrendingUp,
-  Activity,
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
@@ -16,161 +16,92 @@ import { TodaySchedule } from '../components/dashboard/TodaySchedule.jsx';
 import { AppointmentTable } from '../components/appointments/AppointmentTable.jsx';
 import { AppointmentFormModal } from '../components/appointments/AppointmentFormModal.jsx';
 import { DoctorFormModal } from '../components/doctors/DoctorFormModal.jsx';
-import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
-import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
+import { DashboardSkeleton } from '../components/common/Skeleton.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { Button } from '../components/common/Button.jsx';
-import { dashboardService } from '../services/dashboardService.js';
-import { appointmentService } from '../services/appointmentService.js';
-import { doctorService } from '../services/doctorService.js';
-import { useToast } from '../context/ToastContext.jsx';
+import { useDashboard } from '../hooks/useDashboard.js';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const { showToast } = useToast();
 
-  const [stats, setStats] = useState(null);
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [error, setError] = useState(null);
+  // Custom hook for all Dashboard metrics and actions
+  const {
+    stats,
+    doctors,
+    loading,
+    refreshing,
+    error,
+    actionLoading,
+    serverConflictError,
+    doctorServerError,
+    fetchDashboardData,
+    loadDoctorsList,
+    updateStatus,
+    createAppointment,
+    createDoctor,
+    clearErrors,
+  } = useDashboard();
 
-  // Modals
+  // Quick Action Modals
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
-  const [deleteAppointmentTarget, setDeleteAppointmentTarget] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [serverConflictError, setServerConflictError] = useState(null);
-
-  const fetchDashboardData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-
-    try {
-      const [statsData, doctorsData] = await Promise.all([
-        dashboardService.getStats(),
-        doctorService.getDoctors(),
-      ]);
-      setStats(statsData);
-      setDoctors(doctorsData);
-      if (isRefresh) {
-        showToast('Dashboard metrics updated successfully', 'success');
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to fetch dashboard data');
-      showToast(err.message || 'Failed to connect to API server', 'error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [showToast]);
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Seed Data Handler
-  const handleSeedData = async () => {
-    setSeeding(true);
-    try {
-      await dashboardService.seedData();
-      showToast('Database successfully seeded with realistic clinic data!', 'success');
-      fetchDashboardData(true);
-    } catch (err) {
-      showToast(err.message || 'Failed to seed database', 'error');
-    } finally {
-      setSeeding(false);
-    }
-  };
-
-  // Appointment Status Change
-  const handleStatusChange = async (appointmentId, newStatus) => {
-    try {
-      await appointmentService.updateStatus(appointmentId, newStatus);
-      showToast(`Status updated to ${newStatus}`, 'success');
-      fetchDashboardData();
-    } catch (err) {
-      showToast(err.message || 'Failed to update status', 'error');
-    }
-  };
-
-  // Create Appointment
-  const handleCreateAppointment = async (payload) => {
-    setActionLoading(true);
-    setServerConflictError(null);
-    try {
-      await appointmentService.createAppointment(payload);
-      showToast('Appointment successfully scheduled!', 'success');
-      setIsBookModalOpen(false);
-      fetchDashboardData();
-    } catch (err) {
-      if (err.statusCode === 409) {
-        setServerConflictError(err.message);
+  // Appointment Actions with useCallback
+  const handleCreateAppointment = useCallback(
+    async (payload) => {
+      const result = await createAppointment(payload);
+      if (result.success) {
+        setIsBookModalOpen(false);
       }
-      showToast(err.message || 'Failed to schedule appointment', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    },
+    [createAppointment]
+  );
 
-  // Edit Appointment
-  const handleEditAppointment = async (payload) => {
-    if (!selectedAppointment?.id) return;
-    setActionLoading(true);
-    setServerConflictError(null);
-    try {
-      await appointmentService.updateAppointment(selectedAppointment.id, payload);
-      showToast('Appointment updated successfully', 'success');
-      setIsEditAppointmentOpen(false);
-      setSelectedAppointment(null);
-      fetchDashboardData();
-    } catch (err) {
-      if (err.statusCode === 409) {
-        setServerConflictError(err.message);
+  // Doctor Actions with useCallback
+  const handleCreateDoctor = useCallback(
+    async (payload) => {
+      const result = await createDoctor(payload);
+      if (result.success) {
+        setIsDoctorModalOpen(false);
       }
-      showToast(err.message || 'Failed to update appointment', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    },
+    [createDoctor]
+  );
 
-  // Delete Appointment
-  const handleConfirmDeleteAppointment = async () => {
-    if (!deleteAppointmentTarget?.id) return;
-    setActionLoading(true);
-    try {
-      await appointmentService.deleteAppointment(deleteAppointmentTarget.id);
-      showToast('Appointment deleted successfully', 'success');
-      setDeleteAppointmentTarget(null);
-      fetchDashboardData();
-    } catch (err) {
-      showToast(err.message || 'Failed to delete appointment', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const handleOpenBookModal = useCallback(async () => {
+    clearErrors();
+    await loadDoctorsList();
+    setIsBookModalOpen(true);
+  }, [clearErrors, loadDoctorsList]);
 
-  // Create Doctor
-  const handleCreateDoctor = async (payload) => {
-    setActionLoading(true);
-    try {
-      await doctorService.createDoctor(payload);
-      showToast(`Dr. ${payload.name} added successfully!`, 'success');
-      setIsDoctorModalOpen(false);
-      fetchDashboardData();
-    } catch (err) {
-      showToast(err.message || 'Failed to create doctor', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const handleOpenDoctorModal = useCallback(() => {
+    clearErrors();
+    setIsDoctorModalOpen(true);
+  }, [clearErrors]);
 
-  if (loading) {
-    return <LoadingSpinner text="Loading clinic dashboard..." fullPage />;
+  const handleRefresh = useCallback(() => {
+    fetchDashboardData(true);
+  }, [fetchDashboardData]);
+
+  // Navigate to Appointments hub to view, filter, edit, or delete the record
+  const handleManageAppointment = useCallback(
+    (apt) => {
+      navigate(`/appointments?search=${encodeURIComponent(apt.patientName)}`);
+    },
+    [navigate]
+  );
+
+  const overview = useMemo(() => stats?.overview || {}, [stats]);
+  const todaySchedule = useMemo(() => stats?.todaySchedule || [], [stats]);
+  const recentAppointments = useMemo(() => stats?.recentAppointments || [], [stats]);
+  const topDoctors = useMemo(() => stats?.topDoctors || [], [stats]);
+
+  if (loading && !stats) {
+    return <DashboardSkeleton />;
   }
 
   if (error && !stats) {
@@ -185,22 +116,14 @@ export const DashboardPage = () => {
     );
   }
 
-  const overview = stats?.overview || {};
-  const statusBreakdown = stats?.statusBreakdown || {};
-
   return (
     <div>
       {/* Quick Action Bar */}
       <QuickActions
-        onBookAppointment={() => {
-          setServerConflictError(null);
-          setIsBookModalOpen(true);
-        }}
-        onAddDoctor={() => setIsDoctorModalOpen(true)}
-        onRefresh={() => fetchDashboardData(true)}
-        onSeedData={handleSeedData}
+        onBookAppointment={handleOpenBookModal}
+        onAddDoctor={handleOpenDoctorModal}
+        onRefresh={handleRefresh}
         refreshing={refreshing}
-        seeding={seeding}
       />
 
       {/* 4 Summary Metric Cards */}
@@ -213,84 +136,84 @@ export const DashboardPage = () => {
         }}
       >
         <StatCard
-          label="Total Doctors"
+          label="Total Specialists"
           value={overview.totalDoctors || 0}
           icon={Users}
           variant="primary"
-          meta={`${overview.activeDoctors || 0} active specialists`}
+          meta={`${overview.activeDoctors || 0} active on duty`}
         />
         <StatCard
           label="Today's Appointments"
           value={overview.todayAppointmentsCount || 0}
-          icon={Clock}
+          icon={CalendarCheck}
           variant="emerald"
-          meta="Scheduled for today"
+          meta="Visits scheduled for today"
         />
         <StatCard
           label="Upcoming Visits"
           value={overview.upcomingAppointmentsCount || 0}
-          icon={CalendarCheck}
+          icon={Clock}
           variant="teal"
           meta="Future confirmed bookings"
         />
         <StatCard
-          label="Pending Review"
-          value={overview.pendingCount || 0}
-          icon={AlertCircle}
-          variant="amber"
-          meta="Awaiting confirmation"
+          label="Completed Today"
+          value={overview.todayCompletedCount ?? (overview.completedCount || 0)}
+          icon={CheckCircle2}
+          variant="purple"
+          meta="Finished visits today"
         />
       </div>
 
-      {/* Main Grid: Today's Schedule & Doctor Workload */}
+      {/* Middle Layout: Today's Schedule & Doctors Workload */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
           gap: '1.5rem',
-          marginBottom: '2rem',
+          marginBottom: '1.75rem',
         }}
       >
-        {/* Today's Schedule Timeline */}
+        {/* Today's Timeline Queue */}
         <TodaySchedule
-          schedule={stats?.todaySchedule || []}
-          onStatusChange={handleStatusChange}
-          onBookAppointment={() => setIsBookModalOpen(true)}
+          schedule={todaySchedule}
+          onStatusChange={updateStatus}
+          onViewAll={() => navigate('/appointments?dateFilter=today')}
         />
 
-        {/* Doctors on Duty / Workload Widget */}
+        {/* Doctors on Duty / Workload Card */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">
               <ShieldCheck size={18} style={{ color: '#0ea5e9' }} />
-              <span>Doctors on Duty</span>
+              <span>Attending Dental Specialists</span>
             </h3>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => navigate('/doctors')}
             >
-              View All Doctors
+              View All
             </Button>
           </div>
           <div className="card-body">
-            {stats?.topDoctors?.length === 0 ? (
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-                No active doctors configured yet.
+            {topDoctors.length === 0 ? (
+              <p style={{ color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', padding: '1.5rem 0' }}>
+                No active doctors registered.
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                {stats?.topDoctors?.map((doc) => (
+                {topDoctors.map((doc) => (
                   <div
                     key={doc.id}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '0.625rem 0.875rem',
+                      padding: '0.75rem 1rem',
                       background: '#f8fafc',
                       borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
+                      border: '1px solid #f1f5f9',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -299,32 +222,22 @@ export const DashboardPage = () => {
                           width: '38px',
                           height: '38px',
                           borderRadius: '8px',
-                          overflow: 'hidden',
                           background: '#e0f2fe',
+                          color: '#0369a1',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontWeight: 700,
-                          color: '#0369a1',
                           fontSize: '0.85rem',
-                          flexShrink: 0,
                         }}
                       >
-                        {doc.avatarUrl ? (
-                          <img
-                            src={doc.avatarUrl}
-                            alt={doc.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        ) : (
-                          doc.name.substring(0, 2).toUpperCase()
-                        )}
+                        {doc.name.substring(0, 2).toUpperCase()}
                       </div>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#0f172a' }}>
                           {doc.name}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#0284c7' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
                           {doc.specialization}
                         </div>
                       </div>
@@ -334,8 +247,8 @@ export const DashboardPage = () => {
                       <span
                         style={{
                           fontSize: '0.75rem',
-                          fontWeight: 600,
-                          padding: '2px 8px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
                           borderRadius: '4px',
                           background: '#e0f2fe',
                           color: '#0369a1',
@@ -343,9 +256,6 @@ export const DashboardPage = () => {
                       >
                         {doc._count?.appointments || 0} Bookings
                       </span>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                        {doc.availableHoursStart} - {doc.availableHoursEnd}
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -355,13 +265,13 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Recent Appointments Section */}
+      {/* Bottom Section: Recent Appointments Table */}
       <div className="card">
         <div className="card-header">
           <div>
             <h3 className="card-title">Recent Appointments</h3>
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
-              Latest patient booking requests and scheduled procedures
+              Recent patient bookings and clinical appointments
             </p>
           </div>
           <Button
@@ -370,29 +280,40 @@ export const DashboardPage = () => {
             onClick={() => navigate('/appointments')}
             icon={ArrowRight}
           >
-            All Appointments
+            View Full Schedule
           </Button>
         </div>
+
         <div className="card-body" style={{ padding: 0 }}>
-          {stats?.recentAppointments?.length === 0 ? (
-            <div style={{ padding: '2rem' }}>
-              <EmptyState
-                title="No Appointments Scheduled"
-                description="Click 'Book Appointment' to schedule your first patient visit."
-                actionLabel="Book Appointment"
-                onAction={() => setIsBookModalOpen(true)}
-              />
+          {recentAppointments.length === 0 ? (
+            <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: '#f0f9ff',
+                  color: '#0ea5e9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 0.75rem',
+                }}
+              >
+                <CalendarDays size={22} />
+              </div>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+                No Recent Appointments
+              </h4>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                No patient bookings recorded yet in the clinic.
+              </p>
             </div>
           ) : (
             <AppointmentTable
-              appointments={stats?.recentAppointments || []}
-              onEdit={(apt) => {
-                setSelectedAppointment(apt);
-                setServerConflictError(null);
-                setIsEditAppointmentOpen(true);
-              }}
-              onDelete={(apt) => setDeleteAppointmentTarget(apt)}
-              onStatusChange={handleStatusChange}
+              appointments={recentAppointments}
+              onManage={handleManageAppointment}
+              onStatusChange={updateStatus}
             />
           )}
         </div>
@@ -408,37 +329,13 @@ export const DashboardPage = () => {
         serverConflictError={serverConflictError}
       />
 
-      {/* Edit Appointment Modal */}
-      <AppointmentFormModal
-        isOpen={isEditAppointmentOpen}
-        onClose={() => {
-          setIsEditAppointmentOpen(false);
-          setSelectedAppointment(null);
-        }}
-        onSubmit={handleEditAppointment}
-        initialData={selectedAppointment}
-        doctors={doctors}
-        loading={actionLoading}
-        serverConflictError={serverConflictError}
-      />
-
       {/* Add Doctor Modal */}
       <DoctorFormModal
         isOpen={isDoctorModalOpen}
         onClose={() => setIsDoctorModalOpen(false)}
         onSubmit={handleCreateDoctor}
         loading={actionLoading}
-      />
-
-      {/* Delete Appointment Confirmation */}
-      <ConfirmDialog
-        isOpen={Boolean(deleteAppointmentTarget)}
-        onClose={() => setDeleteAppointmentTarget(null)}
-        onConfirm={handleConfirmDeleteAppointment}
-        title="Delete Appointment"
-        message="Are you sure you want to permanently cancel and delete this appointment?"
-        itemName={deleteAppointmentTarget ? `${deleteAppointmentTarget.patientName} (${deleteAppointmentTarget.reason})` : ''}
-        loading={actionLoading}
+        serverError={doctorServerError}
       />
     </div>
   );

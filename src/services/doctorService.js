@@ -6,7 +6,18 @@ export const doctorService = {
    */
   getDoctors: async (params = {}) => {
     const res = await api.get('/doctors', params);
-    return res.data || [];
+    return {
+      data: res.data || [],
+      meta: res.meta || {
+        total: res.data?.length || 0,
+        count: res.data?.length || 0,
+        page: 1,
+        limit: res.data?.length || 10,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false,
+      },
+    };
   },
 
   /**

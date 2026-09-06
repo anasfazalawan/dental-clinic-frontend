@@ -4,6 +4,7 @@ import { Modal } from '../common/Modal.jsx';
 import { Input, Textarea } from '../common/Input.jsx';
 import { Select } from '../common/Select.jsx';
 import { Button } from '../common/Button.jsx';
+import { useToast } from '../../context/ToastContext.jsx';
 
 const allDays = [
   'Monday',
@@ -32,7 +33,9 @@ export const DoctorFormModal = ({
   onSubmit,
   initialData = null,
   loading = false,
+  serverError = null,
 }) => {
+  const { showToast } = useToast();
   const isEdit = Boolean(initialData?.id);
 
   const [formData, setFormData] = useState({
@@ -53,6 +56,7 @@ export const DoctorFormModal = ({
   });
 
   const [errors, setErrors] = useState({});
+
 
   useEffect(() => {
     if (initialData) {
@@ -138,12 +142,18 @@ export const DoctorFormModal = ({
     }
 
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return errs;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    const validationErrors = validate();
+    const errorKeys = Object.keys(validationErrors);
+    if (errorKeys.length > 0) {
+      const firstErrorMsg = validationErrors[errorKeys[0]];
+      showToast(firstErrorMsg, 'warning');
+      return;
+    }
 
     const finalSpecialization =
       formData.specialization === 'Other'
@@ -188,7 +198,29 @@ export const DoctorFormModal = ({
       }
     >
       <form onSubmit={handleSubmit}>
+        {/* Server Validation / Error Alert Banner */}
+        {serverError && (
+          <div
+            style={{
+              padding: '0.875rem 1rem',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              color: '#b91c1c',
+              fontSize: '0.85rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.625rem',
+              marginBottom: '1.25rem',
+            }}
+          >
+            <div style={{ fontWeight: 700, flexShrink: 0 }}>Notice:</div>
+            <div style={{ flex: 1 }}>{serverError}</div>
+          </div>
+        )}
+
         {/* Basic Info */}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
           <Input
             label="Full Name & Title"
