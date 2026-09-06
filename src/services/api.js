@@ -5,7 +5,7 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(message, statusCode, details = null) {
     super(message);
     this.name = 'ApiError';
@@ -57,14 +57,29 @@ export const request = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      const errorMessage = data?.message || data?.error || `Request failed with status ${response.status}`;
+      let errorMessage = data?.message || data?.error;
+      
+      // If there are detailed validation error items, format them cleanly for display
+      if (Array.isArray(data?.details) && data.details.length > 0) {
+        const detailMsgs = data.details
+          .map((d) => (typeof d === 'string' ? d : d.message || `${d.field}: invalid`))
+          .filter(Boolean);
+        if (detailMsgs.length > 0) {
+          errorMessage = detailMsgs.join(' • ');
+        }
+      }
+
+      if (!errorMessage) {
+        errorMessage = `Request failed with status ${response.status}`;
+      }
+
       throw new ApiError(errorMessage, response.status, data?.details || null);
     }
 
     return data;
   } catch (error) {
     if (error.name === 'AbortError') {
-      throw new ApiError('Request timed out after 15 seconds', 408);
+      throw new ApiError('Request timed out. Please check your internet connection.', 408);
     }
     if (error instanceof ApiError) {
       throw error;

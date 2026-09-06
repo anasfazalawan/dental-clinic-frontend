@@ -49,6 +49,12 @@ export const DoctorsPage = () => {
   const [bookDoctorTarget, setBookDoctorTarget] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [serverConflictError, setServerConflictError] = useState(null);
+  const [doctorServerError, setDoctorServerError] = useState(null);
+
+  // Load specializations once
+  useEffect(() => {
+    doctorService.getSpecializations().then(setSpecializations).catch(() => {});
+  }, []);
 
   const fetchDoctors = useCallback(async () => {
     setLoading(true);
@@ -59,13 +65,8 @@ export const DoctorsPage = () => {
       if (selectedSpec !== 'All') params.specialization = selectedSpec;
       if (statusFilter !== 'All') params.isActive = statusFilter === 'active';
 
-      const [docsData, specsData] = await Promise.all([
-        doctorService.getDoctors(params),
-        doctorService.getSpecializations(),
-      ]);
-
+      const docsData = await doctorService.getDoctors(params);
       setDoctors(docsData);
-      setSpecializations(specsData);
     } catch (err) {
       setError(err.message || 'Failed to load doctors directory');
       showToast(err.message || 'Unable to connect to doctors service', 'error');
@@ -81,12 +82,14 @@ export const DoctorsPage = () => {
   // Create Doctor
   const handleCreateDoctor = async (formData) => {
     setActionLoading(true);
+    setDoctorServerError(null);
     try {
       await doctorService.createDoctor(formData);
       showToast(`Dr. ${formData.name} successfully registered!`, 'success');
       setIsAddModalOpen(false);
       fetchDoctors();
     } catch (err) {
+      setDoctorServerError(err.message);
       showToast(err.message || 'Failed to create doctor record', 'error');
     } finally {
       setActionLoading(false);
@@ -97,17 +100,20 @@ export const DoctorsPage = () => {
   const handleUpdateDoctor = async (formData) => {
     if (!editTargetDoctor?.id) return;
     setActionLoading(true);
+    setDoctorServerError(null);
     try {
       await doctorService.updateDoctor(editTargetDoctor.id, formData);
       showToast(`Dr. ${formData.name} profile updated successfully`, 'success');
       setEditTargetDoctor(null);
       fetchDoctors();
     } catch (err) {
+      setDoctorServerError(err.message);
       showToast(err.message || 'Failed to update doctor profile', 'error');
     } finally {
       setActionLoading(false);
     }
   };
+
 
   // Delete Doctor
   const handleConfirmDelete = async () => {
@@ -351,19 +357,28 @@ export const DoctorsPage = () => {
       {/* Add Doctor Modal */}
       <DoctorFormModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setDoctorServerError(null);
+        }}
         onSubmit={handleCreateDoctor}
         loading={actionLoading}
+        serverError={doctorServerError}
       />
 
       {/* Edit Doctor Modal */}
       <DoctorFormModal
         isOpen={Boolean(editTargetDoctor)}
-        onClose={() => setEditTargetDoctor(null)}
+        onClose={() => {
+          setEditTargetDoctor(null);
+          setDoctorServerError(null);
+        }}
         onSubmit={handleUpdateDoctor}
         initialData={editTargetDoctor}
         loading={actionLoading}
+        serverError={doctorServerError}
       />
+
 
       {/* View Doctor Profile / Schedule Modal */}
       <DoctorDetailModal

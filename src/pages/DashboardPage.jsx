@@ -9,6 +9,10 @@ import {
   Activity,
   ArrowRight,
   ShieldCheck,
+  PlusCircle,
+  RefreshCw,
+  Database,
+  Sparkles,
 } from 'lucide-react';
 import { StatCard } from '../components/dashboard/StatCard.jsx';
 import { QuickActions } from '../components/dashboard/QuickActions.jsx';
@@ -44,6 +48,8 @@ export const DashboardPage = () => {
   const [deleteAppointmentTarget, setDeleteAppointmentTarget] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [serverConflictError, setServerConflictError] = useState(null);
+  const [doctorServerError, setDoctorServerError] = useState(null);
+
 
   const fetchDashboardData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -51,14 +57,10 @@ export const DashboardPage = () => {
     setError(null);
 
     try {
-      const [statsData, doctorsData] = await Promise.all([
-        dashboardService.getStats(),
-        doctorService.getDoctors(),
-      ]);
+      const statsData = await dashboardService.getStats();
       setStats(statsData);
-      setDoctors(doctorsData);
       if (isRefresh) {
-        showToast('Dashboard metrics updated successfully', 'success');
+        showToast('Dashboard metrics refreshed successfully', 'success');
       }
     } catch (err) {
       setError(err.message || 'Failed to fetch dashboard data');
@@ -69,6 +71,17 @@ export const DashboardPage = () => {
     }
   }, [showToast]);
 
+  const loadDoctorsList = async () => {
+    if (doctors.length === 0) {
+      try {
+        const docs = await doctorService.getDoctors();
+        setDoctors(docs);
+      } catch (err) {
+        console.error('Failed to load doctors:', err);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
@@ -78,8 +91,10 @@ export const DashboardPage = () => {
     setSeeding(true);
     try {
       await dashboardService.seedData();
-      showToast('Database successfully seeded with realistic clinic data!', 'success');
+      showToast('Database reset with sample clinic records', 'success');
       fetchDashboardData(true);
+      const docs = await doctorService.getDoctors();
+      setDoctors(docs);
     } catch (err) {
       showToast(err.message || 'Failed to seed database', 'error');
     } finally {
@@ -91,7 +106,7 @@ export const DashboardPage = () => {
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
       await appointmentService.updateStatus(appointmentId, newStatus);
-      showToast(`Status updated to ${newStatus}`, 'success');
+      showToast(`Appointment status updated to ${newStatus}`, 'success');
       fetchDashboardData();
     } catch (err) {
       showToast(err.message || 'Failed to update status', 'error');
@@ -104,7 +119,7 @@ export const DashboardPage = () => {
     setServerConflictError(null);
     try {
       await appointmentService.createAppointment(payload);
-      showToast('Appointment successfully scheduled!', 'success');
+      showToast('Appointment scheduled successfully!', 'success');
       setIsBookModalOpen(false);
       fetchDashboardData();
     } catch (err) {
@@ -157,17 +172,22 @@ export const DashboardPage = () => {
   // Create Doctor
   const handleCreateDoctor = async (payload) => {
     setActionLoading(true);
+    setDoctorServerError(null);
     try {
       await doctorService.createDoctor(payload);
       showToast(`Dr. ${payload.name} added successfully!`, 'success');
       setIsDoctorModalOpen(false);
       fetchDashboardData();
+      const docs = await doctorService.getDoctors();
+      setDoctors(docs);
     } catch (err) {
+      setDoctorServerError(err.message);
       showToast(err.message || 'Failed to create doctor', 'error');
     } finally {
       setActionLoading(false);
     }
   };
+
 
   if (loading) {
     return <LoadingSpinner text="Loading clinic dashboard..." fullPage />;
@@ -186,14 +206,14 @@ export const DashboardPage = () => {
   }
 
   const overview = stats?.overview || {};
-  const statusBreakdown = stats?.statusBreakdown || {};
 
   return (
     <div>
       {/* Quick Action Bar */}
       <QuickActions
-        onBookAppointment={() => {
+        onBookAppointment={async () => {
           setServerConflictError(null);
+          await loadDoctorsList();
           setIsBookModalOpen(true);
         }}
         onAddDoctor={() => setIsDoctorModalOpen(true)}
@@ -255,7 +275,10 @@ export const DashboardPage = () => {
         <TodaySchedule
           schedule={stats?.todaySchedule || []}
           onStatusChange={handleStatusChange}
-          onBookAppointment={() => setIsBookModalOpen(true)}
+          onBookAppointment={async () => {
+            await loadDoctorsList();
+            setIsBookModalOpen(true);
+          }}
         />
 
         {/* Doctors on Duty / Workload Widget */}
@@ -380,13 +403,17 @@ export const DashboardPage = () => {
                 title="No Appointments Scheduled"
                 description="Click 'Book Appointment' to schedule your first patient visit."
                 actionLabel="Book Appointment"
-                onAction={() => setIsBookModalOpen(true)}
+                onAction={async () => {
+                  await loadDoctorsList();
+                  setIsBookModalOpen(true);
+                }}
               />
             </div>
           ) : (
             <AppointmentTable
               appointments={stats?.recentAppointments || []}
-              onEdit={(apt) => {
+              onEdit={async (apt) => {
+                await loadDoctorsList();
                 setSelectedAppointment(apt);
                 setServerConflictError(null);
                 setIsEditAppointmentOpen(true);
@@ -425,10 +452,15 @@ export const DashboardPage = () => {
       {/* Add Doctor Modal */}
       <DoctorFormModal
         isOpen={isDoctorModalOpen}
-        onClose={() => setIsDoctorModalOpen(false)}
+        onClose={() => {
+          setIsDoctorModalOpen(false);
+          setDoctorServerError(null);
+        }}
         onSubmit={handleCreateDoctor}
         loading={actionLoading}
+        serverError={doctorServerError}
       />
+
 
       {/* Delete Appointment Confirmation */}
       <ConfirmDialog

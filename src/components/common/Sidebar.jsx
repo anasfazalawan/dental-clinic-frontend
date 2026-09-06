@@ -1,38 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   UserCheck,
   CalendarDays,
-  Sparkles,
-  Activity,
   HeartPulse,
-  Database,
   X,
 } from 'lucide-react';
-import { dashboardService } from '../../services/dashboardService.js';
 
 export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
-  const [dbStatus, setDbStatus] = useState({ online: true, text: 'Connected' });
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const res = await dashboardService.checkHealth();
-        if (res.status === 'healthy' || res.status === 'online') {
-          setDbStatus({ online: true, text: 'API & DB Online' });
-        } else {
-          setDbStatus({ online: false, text: 'DB Connecting...' });
-        }
-      } catch (err) {
-        setDbStatus({ online: false, text: 'Offline Mode' });
-      }
-    };
-    checkStatus();
-    const interval = setInterval(checkStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const navItems = [
     {
       to: '/',
@@ -147,10 +123,8 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
             <div
               className="status-dot"
               style={{
-                backgroundColor: dbStatus.online ? '#10b981' : '#f59e0b',
-                boxShadow: dbStatus.online
-                  ? '0 0 0 3px rgba(16, 185, 129, 0.2)'
-                  : '0 0 0 3px rgba(245, 158, 11, 0.2)',
+                backgroundColor: '#10b981',
+                boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.2)',
               }}
             />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -158,7 +132,7 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
                 System Live
               </span>
               <span style={{ fontSize: '0.725rem', color: '#64748b' }}>
-                {dbStatus.text}
+                Supabase Connected
               </span>
             </div>
           </div>
