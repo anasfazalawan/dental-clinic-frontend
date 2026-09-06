@@ -49,7 +49,8 @@ export const useDashboard = () => {
   const loadDoctorsList = async () => {
     if (doctors.length === 0) {
       try {
-        const docs = await doctorService.getDoctors();
+        const res = await doctorService.getDoctors();
+        const docs = Array.isArray(res) ? res : res.data || [];
         setDoctors(docs);
         return docs;
       } catch (err) {
@@ -67,7 +68,8 @@ export const useDashboard = () => {
       await dashboardService.seedData();
       showToast('Database reset with sample clinic records', 'success');
       await fetchDashboardData(true);
-      const docs = await doctorService.getDoctors();
+      const res = await doctorService.getDoctors();
+      const docs = Array.isArray(res) ? res : res.data || [];
       setDoctors(docs);
       return { success: true };
     } catch (err) {
@@ -155,7 +157,8 @@ export const useDashboard = () => {
       await doctorService.createDoctor(payload);
       showToast(`Dr. ${payload.name} added successfully!`, 'success');
       await fetchDashboardData();
-      const docs = await doctorService.getDoctors();
+      const res = await doctorService.getDoctors();
+      const docs = Array.isArray(res) ? res : res.data || [];
       setDoctors(docs);
       return { success: true };
     } catch (err) {

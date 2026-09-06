@@ -4,7 +4,7 @@ import { doctorService } from '../services/doctorService.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 /**
- * Custom hook to manage Appointment schedule data, filters, and CRUD operations.
+ * Custom hook to manage Appointment schedule data, filters, pagination, and CRUD operations.
  * Extracts API logic and state management out of page components.
  */
 export const useAppointments = () => {
@@ -17,27 +17,70 @@ export const useAppointments = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [serverConflictError, setServerConflictError] = useState(null);
 
+  const [pagination, setPagination] = useState({
+    total: 0,
+    count: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  });
+
   // Fetch appointments & doctor list
-  const fetchAppointments = useCallback(async (params = {}) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [aptsData, docsData] = await Promise.all([
-        appointmentService.getAppointments(params),
-        doctorService.getDoctors(),
-      ]);
-      setAppointments(aptsData);
-      setDoctors(docsData);
-      return { appointments: aptsData, doctors: docsData };
-    } catch (err) {
-      const msg = err.message || 'Failed to load appointments schedule';
-      setError(msg);
-      showToast(msg, 'error');
-      return { appointments: [], doctors: [] };
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
+  const fetchAppointments = useCallback(
+    async (params = {}) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const queryParams = {
+          page: params.page !== undefined ? params.page : pagination.page,
+          limit: params.limit !== undefined ? params.limit : pagination.limit,
+          ...params,
+        };
+
+        const [aptsRes, docsRes] = await Promise.all([
+          appointmentService.getAppointments(queryParams),
+          doctorService.getDoctors(),
+        ]);
+
+        const aptsData = Array.isArray(aptsRes) ? aptsRes : aptsRes.data || [];
+        const docsData = Array.isArray(docsRes) ? docsRes : docsRes.data || [];
+        const meta = aptsRes.meta || {
+          total: aptsData.length,
+          count: aptsData.length,
+          page: queryParams.page,
+          limit: queryParams.limit,
+          totalPages: Math.ceil(aptsData.length / queryParams.limit) || 1,
+          hasNext: false,
+          hasPrev: false,
+        };
+
+        setAppointments(aptsData);
+        setDoctors(docsData);
+        setPagination(meta);
+        return { appointments: aptsData, doctors: docsData, meta };
+      } catch (err) {
+        const msg = err.message || 'Failed to load appointments schedule';
+        setError(msg);
+        showToast(msg, 'error');
+        return { appointments: [], doctors: [], meta: pagination };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [showToast, pagination.page, pagination.limit]
+  );
+
+  // Change page
+  const setPage = useCallback((newPage) => {
+    setPagination((prev) => ({ ...prev, page: newPage }));
+  }, []);
+
+  // Change page size
+  const setLimit = useCallback((newLimit) => {
+    setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+  }, []);
 
   // Create appointment
   const createAppointment = async (payload, currentFilters = {}) => {
@@ -113,11 +156,14 @@ export const useAppointments = () => {
   return {
     appointments,
     doctors,
+    pagination,
     loading,
     error,
     actionLoading,
     serverConflictError,
     fetchAppointments,
+    setPage,
+    setLimit,
     createAppointment,
     updateAppointment,
     updateStatus,

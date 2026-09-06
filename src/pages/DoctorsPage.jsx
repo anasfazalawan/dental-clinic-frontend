@@ -16,22 +16,27 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { Button } from '../components/common/Button.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
+import { Pagination } from '../components/common/Pagination.jsx';
 import { useDoctors } from '../hooks/useDoctors.js';
+import { useDebounce } from '../hooks/useDebounce.js';
 import { appointmentService } from '../services/appointmentService.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 export const DoctorsPage = () => {
   const { showToast } = useToast();
 
-  // Custom hook for Doctor CRUD and state
+  // Custom hook for Doctor CRUD, state, and pagination
   const {
     doctors,
     specializations,
+    pagination,
     loading,
     error,
     actionLoading,
     serverError,
     fetchDoctors,
+    setPage,
+    setLimit,
     createDoctor,
     updateDoctor,
     deleteDoctor,
@@ -40,6 +45,8 @@ export const DoctorsPage = () => {
 
   // Filters & View State
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 350);
+
   const [selectedSpec, setSelectedSpec] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
@@ -53,19 +60,37 @@ export const DoctorsPage = () => {
   const [serverConflictError, setServerConflictError] = useState(null);
   const [appointmentActionLoading, setAppointmentActionLoading] = useState(false);
 
-  // Trigger search / filter changes
-  useEffect(() => {
-    const params = {};
-    if (search.trim()) params.search = search.trim();
+  // Helper to build filter query object
+  const buildQueryParams = (pageOverride = null) => {
+    const params = {
+      page: pageOverride !== null ? pageOverride : pagination.page,
+      limit: pagination.limit,
+    };
+    if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
     if (selectedSpec !== 'All') params.specialization = selectedSpec;
     if (statusFilter !== 'All') params.isActive = statusFilter === 'active';
+    return params;
+  };
 
-    fetchDoctors(params);
-  }, [search, selectedSpec, statusFilter, fetchDoctors]);
+  // Trigger search / filter changes (resets to page 1)
+  useEffect(() => {
+    fetchDoctors(buildQueryParams(1));
+  }, [debouncedSearch, selectedSpec, statusFilter, pagination.limit]);
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchDoctors(buildQueryParams(newPage));
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (newLimit) => {
+    setLimit(newLimit);
+  };
 
   // Handle Add Doctor
   const handleCreateDoctor = async (formData) => {
-    const result = await createDoctor(formData);
+    const result = await createDoctor(formData, buildQueryParams());
     if (result.success) {
       setIsAddModalOpen(false);
     }
@@ -74,7 +99,7 @@ export const DoctorsPage = () => {
   // Handle Edit Doctor
   const handleUpdateDoctor = async (formData) => {
     if (!editTargetDoctor?.id) return;
-    const result = await updateDoctor(editTargetDoctor.id, formData);
+    const result = await updateDoctor(editTargetDoctor.id, formData, buildQueryParams());
     if (result.success) {
       setEditTargetDoctor(null);
     }
@@ -83,7 +108,7 @@ export const DoctorsPage = () => {
   // Handle Delete Doctor
   const handleConfirmDelete = async () => {
     if (!deleteTargetDoctor?.id) return;
-    const result = await deleteDoctor(deleteTargetDoctor);
+    const result = await deleteDoctor(deleteTargetDoctor, buildQueryParams());
     if (result.success) {
       setDeleteTargetDoctor(null);
     }
@@ -130,7 +155,7 @@ export const DoctorsPage = () => {
             Doctors Directory
           </h2>
           <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>
-            {doctors.length} Registered Dental Specialist{doctors.length === 1 ? '' : 's'}
+            {pagination.total} Registered Dental Specialist{pagination.total === 1 ? '' : 's'}
           </p>
         </div>
 
@@ -207,7 +232,7 @@ export const DoctorsPage = () => {
           boxShadow: 'var(--shadow-xs)',
         }}
       >
-        {/* Search */}
+        {/* Search with Debounce */}
         <div style={{ position: 'relative' }}>
           <label style={{ fontSize: '0.775rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
             Search Doctors
@@ -275,7 +300,7 @@ export const DoctorsPage = () => {
           title="Error Loading Doctors"
           description={error}
           actionLabel="Retry"
-          onAction={() => fetchDoctors()}
+          onAction={() => fetchDoctors(buildQueryParams())}
         />
       ) : doctors.length === 0 ? (
         <EmptyState
@@ -292,18 +317,32 @@ export const DoctorsPage = () => {
             setIsAddModalOpen(true);
           }}
         />
-      ) : viewMode === 'grid' ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '1.25rem',
-          }}
-        >
-          {doctors.map((doctor) => (
-            <DoctorCard
-              key={doctor.id}
-              doctor={doctor}
+      ) : (
+        <>
+          {viewMode === 'grid' ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: '1.25rem',
+              }}
+            >
+              {doctors.map((doctor) => (
+                <DoctorCard
+                  key={doctor.id}
+                  doctor={doctor}
+                  onEdit={(doc) => {
+                    clearServerError();
+                    setEditTargetDoctor(doc);
+                  }}
+                  onDelete={(doc) => setDeleteTargetDoctor(doc)}
+                  onViewDetails={(doc) => setViewDoctorId(doc.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <DoctorTable
+              doctors={doctors}
               onEdit={(doc) => {
                 clearServerError();
                 setEditTargetDoctor(doc);
@@ -311,18 +350,19 @@ export const DoctorsPage = () => {
               onDelete={(doc) => setDeleteTargetDoctor(doc)}
               onViewDetails={(doc) => setViewDoctorId(doc.id)}
             />
-          ))}
-        </div>
-      ) : (
-        <DoctorTable
-          doctors={doctors}
-          onEdit={(doc) => {
-            clearServerError();
-            setEditTargetDoctor(doc);
-          }}
-          onDelete={(doc) => setDeleteTargetDoctor(doc)}
-          onViewDetails={(doc) => setViewDoctorId(doc.id)}
-        />
+          )}
+
+          {/* Pagination Controls */}
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.total}
+            pageSize={pagination.limit}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            pageSizeOptions={[6, 12, 24, 48]}
+          />
+        </>
       )}
 
       {/* Add Doctor Modal */}

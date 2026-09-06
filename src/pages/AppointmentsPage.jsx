@@ -12,20 +12,25 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { Button } from '../components/common/Button.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
+import { Pagination } from '../components/common/Pagination.jsx';
 import { useAppointments } from '../hooks/useAppointments.js';
+import { useDebounce } from '../hooks/useDebounce.js';
 
 export const AppointmentsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Custom hook for appointments data, loading, and mutations
+  // Custom hook for appointments data, loading, pagination, and mutations
   const {
     appointments,
     doctors,
+    pagination,
     loading,
     error,
     actionLoading,
     serverConflictError,
     fetchAppointments,
+    setPage,
+    setLimit,
     createAppointment,
     updateAppointment,
     updateStatus,
@@ -35,6 +40,8 @@ export const AppointmentsPage = () => {
 
   // Filters
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 350);
+
   const [selectedDoctorId, setSelectedDoctorId] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [dateFilter, setDateFilter] = useState('All'); // 'All' | 'today' | 'tomorrow' | 'upcoming' | 'custom'
@@ -56,9 +63,12 @@ export const AppointmentsPage = () => {
   }, [searchParams, setSearchParams, clearConflictError]);
 
   // Build filter parameters
-  const getFilterParams = () => {
-    const params = {};
-    if (search.trim()) params.search = search.trim();
+  const getFilterParams = (pageOverride = null) => {
+    const params = {
+      page: pageOverride !== null ? pageOverride : pagination.page,
+      limit: pagination.limit,
+    };
+    if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
     if (selectedDoctorId !== 'All') params.doctorId = selectedDoctorId;
     if (selectedStatus !== 'All') params.status = selectedStatus;
 
@@ -77,10 +87,21 @@ export const AppointmentsPage = () => {
     return params;
   };
 
-  // Fetch when filters change
+  // Fetch when filters or page size change (resets to page 1)
   useEffect(() => {
-    fetchAppointments(getFilterParams());
-  }, [search, selectedDoctorId, selectedStatus, dateFilter, customDate, fetchAppointments]);
+    fetchAppointments(getFilterParams(1));
+  }, [debouncedSearch, selectedDoctorId, selectedStatus, dateFilter, customDate, pagination.limit]);
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchAppointments(getFilterParams(newPage));
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (newLimit) => {
+    setLimit(newLimit);
+  };
 
   // Handle Book
   const handleCreateAppointment = async (formData) => {
@@ -131,7 +152,7 @@ export const AppointmentsPage = () => {
             Appointments Schedule
           </h2>
           <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>
-            {appointments.length} Total Patient Visit{appointments.length === 1 ? '' : 's'} Listed
+            {pagination.total} Total Patient Visit{pagination.total === 1 ? '' : 's'} Listed
           </p>
         </div>
 
@@ -160,7 +181,7 @@ export const AppointmentsPage = () => {
           boxShadow: 'var(--shadow-xs)',
         }}
       >
-        {/* Search */}
+        {/* Search with Debounce */}
         <div style={{ position: 'relative' }}>
           <label style={{ fontSize: '0.775rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
             Search Patient / Reason
@@ -285,15 +306,28 @@ export const AppointmentsPage = () => {
           }}
         />
       ) : (
-        <AppointmentTable
-          appointments={appointments}
-          onEdit={(apt) => {
-            setEditTargetAppointment(apt);
-            clearConflictError();
-          }}
-          onDelete={(apt) => setDeleteTargetAppointment(apt)}
-          onStatusChange={handleStatusChange}
-        />
+        <>
+          <AppointmentTable
+            appointments={appointments}
+            onEdit={(apt) => {
+              setEditTargetAppointment(apt);
+              clearConflictError();
+            }}
+            onDelete={(apt) => setDeleteTargetAppointment(apt)}
+            onStatusChange={handleStatusChange}
+          />
+
+          {/* Pagination Controls */}
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.total}
+            pageSize={pagination.limit}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            pageSizeOptions={[5, 10, 25, 50]}
+          />
+        </>
       )}
 
       {/* Book New Appointment Modal */}
@@ -330,7 +364,11 @@ export const AppointmentsPage = () => {
         onConfirm={handleConfirmDelete}
         title="Cancel & Delete Appointment"
         message="Are you sure you want to permanently cancel and delete this appointment?"
-        itemName={deleteTargetAppointment ? `${deleteTargetAppointment.patientName} on ${new Date(deleteTargetAppointment.appointmentDate).toISOString().split('T')[0]} at ${deleteTargetAppointment.appointmentTime}` : ''}
+        itemName={
+          deleteTargetAppointment
+            ? `${deleteTargetAppointment.patientName} on ${new Date(deleteTargetAppointment.appointmentDate).toISOString().split('T')[0]} at ${deleteTargetAppointment.appointmentTime}`
+            : ''
+        }
         loading={actionLoading}
       />
     </div>
