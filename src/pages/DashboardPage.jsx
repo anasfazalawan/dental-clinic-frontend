@@ -1,18 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
   CalendarCheck,
   Clock,
   AlertCircle,
-  TrendingUp,
-  Activity,
   ArrowRight,
   ShieldCheck,
-  PlusCircle,
-  RefreshCw,
-  Database,
-  Sparkles,
 } from 'lucide-react';
 import { StatCard } from '../components/dashboard/StatCard.jsx';
 import { QuickActions } from '../components/dashboard/QuickActions.jsx';
@@ -24,21 +18,32 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { Button } from '../components/common/Button.jsx';
-import { dashboardService } from '../services/dashboardService.js';
-import { appointmentService } from '../services/appointmentService.js';
-import { doctorService } from '../services/doctorService.js';
-import { useToast } from '../context/ToastContext.jsx';
+import { useDashboard } from '../hooks/useDashboard.js';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const { showToast } = useToast();
 
-  const [stats, setStats] = useState(null);
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [error, setError] = useState(null);
+  // Custom hook for all Dashboard metrics and actions
+  const {
+    stats,
+    doctors,
+    loading,
+    refreshing,
+    seeding,
+    error,
+    actionLoading,
+    serverConflictError,
+    doctorServerError,
+    fetchDashboardData,
+    loadDoctorsList,
+    seedDatabase,
+    updateStatus,
+    createAppointment,
+    updateAppointment,
+    deleteAppointment,
+    createDoctor,
+    clearErrors,
+  } = useDashboard();
 
   // Modals
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
@@ -46,148 +51,43 @@ export const DashboardPage = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
   const [deleteAppointmentTarget, setDeleteAppointmentTarget] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [serverConflictError, setServerConflictError] = useState(null);
-  const [doctorServerError, setDoctorServerError] = useState(null);
-
-
-  const fetchDashboardData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-
-    try {
-      const statsData = await dashboardService.getStats();
-      setStats(statsData);
-      if (isRefresh) {
-        showToast('Dashboard metrics refreshed successfully', 'success');
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to fetch dashboard data');
-      showToast(err.message || 'Failed to connect to API server', 'error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [showToast]);
-
-  const loadDoctorsList = async () => {
-    if (doctors.length === 0) {
-      try {
-        const docs = await doctorService.getDoctors();
-        setDoctors(docs);
-      } catch (err) {
-        console.error('Failed to load doctors:', err);
-      }
-    }
-  };
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Seed Data Handler
-  const handleSeedData = async () => {
-    setSeeding(true);
-    try {
-      await dashboardService.seedData();
-      showToast('Database reset with sample clinic records', 'success');
-      fetchDashboardData(true);
-      const docs = await doctorService.getDoctors();
-      setDoctors(docs);
-    } catch (err) {
-      showToast(err.message || 'Failed to seed database', 'error');
-    } finally {
-      setSeeding(false);
-    }
-  };
-
-  // Appointment Status Change
-  const handleStatusChange = async (appointmentId, newStatus) => {
-    try {
-      await appointmentService.updateStatus(appointmentId, newStatus);
-      showToast(`Appointment status updated to ${newStatus}`, 'success');
-      fetchDashboardData();
-    } catch (err) {
-      showToast(err.message || 'Failed to update status', 'error');
-    }
-  };
-
-  // Create Appointment
+  // Appointment Actions
   const handleCreateAppointment = async (payload) => {
-    setActionLoading(true);
-    setServerConflictError(null);
-    try {
-      await appointmentService.createAppointment(payload);
-      showToast('Appointment scheduled successfully!', 'success');
+    const result = await createAppointment(payload);
+    if (result.success) {
       setIsBookModalOpen(false);
-      fetchDashboardData();
-    } catch (err) {
-      if (err.statusCode === 409) {
-        setServerConflictError(err.message);
-      }
-      showToast(err.message || 'Failed to schedule appointment', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  // Edit Appointment
   const handleEditAppointment = async (payload) => {
     if (!selectedAppointment?.id) return;
-    setActionLoading(true);
-    setServerConflictError(null);
-    try {
-      await appointmentService.updateAppointment(selectedAppointment.id, payload);
-      showToast('Appointment updated successfully', 'success');
+    const result = await updateAppointment(selectedAppointment.id, payload);
+    if (result.success) {
       setIsEditAppointmentOpen(false);
       setSelectedAppointment(null);
-      fetchDashboardData();
-    } catch (err) {
-      if (err.statusCode === 409) {
-        setServerConflictError(err.message);
-      }
-      showToast(err.message || 'Failed to update appointment', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  // Delete Appointment
   const handleConfirmDeleteAppointment = async () => {
     if (!deleteAppointmentTarget?.id) return;
-    setActionLoading(true);
-    try {
-      await appointmentService.deleteAppointment(deleteAppointmentTarget.id);
-      showToast('Appointment deleted successfully', 'success');
+    const result = await deleteAppointment(deleteAppointmentTarget.id);
+    if (result.success) {
       setDeleteAppointmentTarget(null);
-      fetchDashboardData();
-    } catch (err) {
-      showToast(err.message || 'Failed to delete appointment', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  // Create Doctor
+  // Doctor Actions
   const handleCreateDoctor = async (payload) => {
-    setActionLoading(true);
-    setDoctorServerError(null);
-    try {
-      await doctorService.createDoctor(payload);
-      showToast(`Dr. ${payload.name} added successfully!`, 'success');
+    const result = await createDoctor(payload);
+    if (result.success) {
       setIsDoctorModalOpen(false);
-      fetchDashboardData();
-      const docs = await doctorService.getDoctors();
-      setDoctors(docs);
-    } catch (err) {
-      setDoctorServerError(err.message);
-      showToast(err.message || 'Failed to create doctor', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
-
 
   if (loading) {
     return <LoadingSpinner text="Loading clinic dashboard..." fullPage />;
@@ -212,13 +112,16 @@ export const DashboardPage = () => {
       {/* Quick Action Bar */}
       <QuickActions
         onBookAppointment={async () => {
-          setServerConflictError(null);
+          clearErrors();
           await loadDoctorsList();
           setIsBookModalOpen(true);
         }}
-        onAddDoctor={() => setIsDoctorModalOpen(true)}
+        onAddDoctor={() => {
+          clearErrors();
+          setIsDoctorModalOpen(true);
+        }}
         onRefresh={() => fetchDashboardData(true)}
-        onSeedData={handleSeedData}
+        onSeedData={seedDatabase}
         refreshing={refreshing}
         seeding={seeding}
       />
@@ -274,8 +177,9 @@ export const DashboardPage = () => {
         {/* Today's Schedule Timeline */}
         <TodaySchedule
           schedule={stats?.todaySchedule || []}
-          onStatusChange={handleStatusChange}
+          onStatusChange={updateStatus}
           onBookAppointment={async () => {
+            clearErrors();
             await loadDoctorsList();
             setIsBookModalOpen(true);
           }}
@@ -404,6 +308,7 @@ export const DashboardPage = () => {
                 description="Click 'Book Appointment' to schedule your first patient visit."
                 actionLabel="Book Appointment"
                 onAction={async () => {
+                  clearErrors();
                   await loadDoctorsList();
                   setIsBookModalOpen(true);
                 }}
@@ -413,13 +318,13 @@ export const DashboardPage = () => {
             <AppointmentTable
               appointments={stats?.recentAppointments || []}
               onEdit={async (apt) => {
+                clearErrors();
                 await loadDoctorsList();
                 setSelectedAppointment(apt);
-                setServerConflictError(null);
                 setIsEditAppointmentOpen(true);
               }}
               onDelete={(apt) => setDeleteAppointmentTarget(apt)}
-              onStatusChange={handleStatusChange}
+              onStatusChange={updateStatus}
             />
           )}
         </div>
@@ -428,7 +333,10 @@ export const DashboardPage = () => {
       {/* Book Appointment Modal */}
       <AppointmentFormModal
         isOpen={isBookModalOpen}
-        onClose={() => setIsBookModalOpen(false)}
+        onClose={() => {
+          setIsBookModalOpen(false);
+          clearErrors();
+        }}
         onSubmit={handleCreateAppointment}
         doctors={doctors.filter((d) => d.isActive)}
         loading={actionLoading}
@@ -441,6 +349,7 @@ export const DashboardPage = () => {
         onClose={() => {
           setIsEditAppointmentOpen(false);
           setSelectedAppointment(null);
+          clearErrors();
         }}
         onSubmit={handleEditAppointment}
         initialData={selectedAppointment}
@@ -454,13 +363,12 @@ export const DashboardPage = () => {
         isOpen={isDoctorModalOpen}
         onClose={() => {
           setIsDoctorModalOpen(false);
-          setDoctorServerError(null);
+          clearErrors();
         }}
         onSubmit={handleCreateDoctor}
         loading={actionLoading}
         serverError={doctorServerError}
       />
-
 
       {/* Delete Appointment Confirmation */}
       <ConfirmDialog

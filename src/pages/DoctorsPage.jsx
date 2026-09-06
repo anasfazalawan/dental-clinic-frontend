@@ -1,14 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import {
   UserPlus,
   Search,
-  Filter,
   LayoutGrid,
   List,
   AlertCircle,
-  RefreshCw,
-  Award,
   Users,
 } from 'lucide-react';
 import { DoctorCard } from '../components/doctors/DoctorCard.jsx';
@@ -18,22 +14,29 @@ import { DoctorDetailModal } from '../components/doctors/DoctorDetailModal.jsx';
 import { AppointmentFormModal } from '../components/appointments/AppointmentFormModal.jsx';
 import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { Button } from '../components/common/Button.jsx';
-import { Select } from '../components/common/Select.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
-import { CardSkeleton } from '../components/common/Skeleton.jsx';
-import { doctorService } from '../services/doctorService.js';
+import { useDoctors } from '../hooks/useDoctors.js';
 import { appointmentService } from '../services/appointmentService.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 export const DoctorsPage = () => {
   const { showToast } = useToast();
-  const navigate = useNavigate();
 
-  const [doctors, setDoctors] = useState([]);
-  const [specializations, setSpecializations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Custom hook for Doctor CRUD and state
+  const {
+    doctors,
+    specializations,
+    loading,
+    error,
+    actionLoading,
+    serverError,
+    fetchDoctors,
+    createDoctor,
+    updateDoctor,
+    deleteDoctor,
+    clearServerError,
+  } = useDoctors();
 
   // Filters & View State
   const [search, setSearch] = useState('');
@@ -47,97 +50,53 @@ export const DoctorsPage = () => {
   const [viewDoctorId, setViewDoctorId] = useState(null);
   const [deleteTargetDoctor, setDeleteTargetDoctor] = useState(null);
   const [bookDoctorTarget, setBookDoctorTarget] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
   const [serverConflictError, setServerConflictError] = useState(null);
-  const [doctorServerError, setDoctorServerError] = useState(null);
+  const [appointmentActionLoading, setAppointmentActionLoading] = useState(false);
 
-  // Load specializations once
+  // Trigger search / filter changes
   useEffect(() => {
-    doctorService.getSpecializations().then(setSpecializations).catch(() => {});
-  }, []);
+    const params = {};
+    if (search.trim()) params.search = search.trim();
+    if (selectedSpec !== 'All') params.specialization = selectedSpec;
+    if (statusFilter !== 'All') params.isActive = statusFilter === 'active';
 
-  const fetchDoctors = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = {};
-      if (search.trim()) params.search = search.trim();
-      if (selectedSpec !== 'All') params.specialization = selectedSpec;
-      if (statusFilter !== 'All') params.isActive = statusFilter === 'active';
+    fetchDoctors(params);
+  }, [search, selectedSpec, statusFilter, fetchDoctors]);
 
-      const docsData = await doctorService.getDoctors(params);
-      setDoctors(docsData);
-    } catch (err) {
-      setError(err.message || 'Failed to load doctors directory');
-      showToast(err.message || 'Unable to connect to doctors service', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [search, selectedSpec, statusFilter, showToast]);
-
-  useEffect(() => {
-    fetchDoctors();
-  }, [fetchDoctors]);
-
-  // Create Doctor
+  // Handle Add Doctor
   const handleCreateDoctor = async (formData) => {
-    setActionLoading(true);
-    setDoctorServerError(null);
-    try {
-      await doctorService.createDoctor(formData);
-      showToast(`Dr. ${formData.name} successfully registered!`, 'success');
+    const result = await createDoctor(formData);
+    if (result.success) {
       setIsAddModalOpen(false);
-      fetchDoctors();
-    } catch (err) {
-      setDoctorServerError(err.message);
-      showToast(err.message || 'Failed to create doctor record', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  // Edit Doctor
+  // Handle Edit Doctor
   const handleUpdateDoctor = async (formData) => {
     if (!editTargetDoctor?.id) return;
-    setActionLoading(true);
-    setDoctorServerError(null);
-    try {
-      await doctorService.updateDoctor(editTargetDoctor.id, formData);
-      showToast(`Dr. ${formData.name} profile updated successfully`, 'success');
+    const result = await updateDoctor(editTargetDoctor.id, formData);
+    if (result.success) {
       setEditTargetDoctor(null);
-      fetchDoctors();
-    } catch (err) {
-      setDoctorServerError(err.message);
-      showToast(err.message || 'Failed to update doctor profile', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-
-  // Delete Doctor
+  // Handle Delete Doctor
   const handleConfirmDelete = async () => {
     if (!deleteTargetDoctor?.id) return;
-    setActionLoading(true);
-    try {
-      await doctorService.deleteDoctor(deleteTargetDoctor.id);
-      showToast(`Dr. ${deleteTargetDoctor.name} removed from registry`, 'success');
+    const result = await deleteDoctor(deleteTargetDoctor);
+    if (result.success) {
       setDeleteTargetDoctor(null);
-      fetchDoctors();
-    } catch (err) {
-      showToast(err.message || 'Cannot delete doctor with active appointments', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
   // Book appointment with doctor from modal
   const handleBookWithDoctor = (doctor) => {
     setBookDoctorTarget(doctor);
+    setServerConflictError(null);
   };
 
   const handleCreateAppointment = async (payload) => {
-    setActionLoading(true);
+    setAppointmentActionLoading(true);
     setServerConflictError(null);
     try {
       await appointmentService.createAppointment(payload);
@@ -149,7 +108,7 @@ export const DoctorsPage = () => {
       }
       showToast(err.message || 'Failed to schedule appointment', 'error');
     } finally {
-      setActionLoading(false);
+      setAppointmentActionLoading(false);
     }
   };
 
@@ -223,7 +182,10 @@ export const DoctorsPage = () => {
           </div>
 
           <Button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              clearServerError();
+              setIsAddModalOpen(true);
+            }}
             icon={UserPlus}
           >
             Add Doctor
@@ -313,7 +275,7 @@ export const DoctorsPage = () => {
           title="Error Loading Doctors"
           description={error}
           actionLabel="Retry"
-          onAction={fetchDoctors}
+          onAction={() => fetchDoctors()}
         />
       ) : doctors.length === 0 ? (
         <EmptyState
@@ -325,7 +287,10 @@ export const DoctorsPage = () => {
               : 'No doctors are currently in the system.'
           }
           actionLabel="Register First Doctor"
-          onAction={() => setIsAddModalOpen(true)}
+          onAction={() => {
+            clearServerError();
+            setIsAddModalOpen(true);
+          }}
         />
       ) : viewMode === 'grid' ? (
         <div
@@ -339,7 +304,10 @@ export const DoctorsPage = () => {
             <DoctorCard
               key={doctor.id}
               doctor={doctor}
-              onEdit={(doc) => setEditTargetDoctor(doc)}
+              onEdit={(doc) => {
+                clearServerError();
+                setEditTargetDoctor(doc);
+              }}
               onDelete={(doc) => setDeleteTargetDoctor(doc)}
               onViewDetails={(doc) => setViewDoctorId(doc.id)}
             />
@@ -348,7 +316,10 @@ export const DoctorsPage = () => {
       ) : (
         <DoctorTable
           doctors={doctors}
-          onEdit={(doc) => setEditTargetDoctor(doc)}
+          onEdit={(doc) => {
+            clearServerError();
+            setEditTargetDoctor(doc);
+          }}
           onDelete={(doc) => setDeleteTargetDoctor(doc)}
           onViewDetails={(doc) => setViewDoctorId(doc.id)}
         />
@@ -359,11 +330,11 @@ export const DoctorsPage = () => {
         isOpen={isAddModalOpen}
         onClose={() => {
           setIsAddModalOpen(false);
-          setDoctorServerError(null);
+          clearServerError();
         }}
         onSubmit={handleCreateDoctor}
         loading={actionLoading}
-        serverError={doctorServerError}
+        serverError={serverError}
       />
 
       {/* Edit Doctor Modal */}
@@ -371,14 +342,13 @@ export const DoctorsPage = () => {
         isOpen={Boolean(editTargetDoctor)}
         onClose={() => {
           setEditTargetDoctor(null);
-          setDoctorServerError(null);
+          clearServerError();
         }}
         onSubmit={handleUpdateDoctor}
         initialData={editTargetDoctor}
         loading={actionLoading}
-        serverError={doctorServerError}
+        serverError={serverError}
       />
-
 
       {/* View Doctor Profile / Schedule Modal */}
       <DoctorDetailModal
@@ -395,7 +365,7 @@ export const DoctorsPage = () => {
         onSubmit={handleCreateAppointment}
         doctors={doctors}
         preselectedDoctor={bookDoctorTarget}
-        loading={actionLoading}
+        loading={appointmentActionLoading}
         serverConflictError={serverConflictError}
       />
 

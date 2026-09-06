@@ -5,10 +5,17 @@ import {
   UserCheck,
   CalendarDays,
   HeartPulse,
+  ChevronLeft,
+  ChevronRight,
   X,
 } from 'lucide-react';
 
-export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
+export const Sidebar = ({
+  isMobileOpen,
+  onCloseMobile,
+  isDesktopCollapsed,
+  onToggleDesktopCollapse,
+}) => {
   const navItems = [
     {
       to: '/',
@@ -40,29 +47,62 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
             position: 'fixed',
             inset: 0,
             background: 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(3px)',
             zIndex: 35,
           }}
+          aria-hidden="true"
         />
       )}
 
-      <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
+      <aside
+        className={`sidebar ${isMobileOpen ? 'mobile-open' : ''} ${
+          isDesktopCollapsed ? 'collapsed' : ''
+        }`}
+      >
         {/* Brand header */}
         <div className="sidebar-brand">
-          <div className="brand-icon-wrapper">
-            <HeartPulse size={24} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div className="brand-name">
-              Dent<span>Pulse</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="brand-icon-wrapper" title="DentPulse Clinic">
+              <HeartPulse size={22} />
             </div>
-            <span className="brand-tag">Clinic Management</span>
+            {!isDesktopCollapsed && (
+              <div>
+                <div className="brand-name">
+                  Dent<span>Pulse</span>
+                </div>
+                <span className="brand-tag">Clinic Management</span>
+              </div>
+            )}
           </div>
+
+          {/* Desktop Collapse Toggle Button */}
+          <button
+            onClick={onToggleDesktopCollapse}
+            className="btn-icon desktop-collapse-btn"
+            title={isDesktopCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+            aria-label={isDesktopCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+            style={{
+              padding: '5px',
+              borderRadius: '6px',
+              color: '#64748b',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {isDesktopCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+
+          {/* Mobile Close Button */}
           {isMobileOpen && (
             <button
               onClick={onCloseMobile}
-              className="btn-icon"
-              style={{ border: 'none' }}
-              aria-label="Close menu"
+              className="btn-icon mobile-close-btn"
+              style={{ border: 'none', background: 'transparent' }}
+              aria-label="Close navigation"
             >
               <X size={18} />
             </button>
@@ -71,18 +111,9 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
 
         {/* Navigation Menu */}
         <nav className="sidebar-nav">
-          <div
-            style={{
-              fontSize: '0.725rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              color: '#94a3b8',
-              letterSpacing: '0.06em',
-              padding: '0.5rem 0.75rem 0.25rem',
-            }}
-          >
-            Management
-          </div>
+          {!isDesktopCollapsed && (
+            <div className="sidebar-nav-title">Management</div>
+          )}
 
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -95,22 +126,30 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
                   `nav-item ${isActive ? 'active' : ''}`
                 }
                 end={item.to === '/'}
+                title={isDesktopCollapsed ? item.label : undefined}
               >
-                <Icon size={18} className="nav-icon" />
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {item.badge && (
-                  <span
-                    style={{
-                      fontSize: '0.675rem',
-                      fontWeight: 600,
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      background: '#f1f5f9',
-                      color: '#64748b',
-                    }}
-                  >
-                    {item.badge}
-                  </span>
+                <Icon size={18} className="nav-icon" style={{ flexShrink: 0 }} />
+                {!isDesktopCollapsed && (
+                  <>
+                    <span className="nav-item-label" style={{ flex: 1 }}>
+                      {item.label}
+                    </span>
+                    {item.badge && (
+                      <span
+                        className="nav-item-badge"
+                        style={{
+                          fontSize: '0.675rem',
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                        }}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
                 )}
               </NavLink>
             );
@@ -122,21 +161,33 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
           <div className="system-status">
             <div
               className="status-dot"
-              style={{
-                backgroundColor: '#10b981',
-                boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.2)',
-              }}
+              title="PostgreSQL / Supabase Connected"
             />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontWeight: 600, color: '#334155' }}>
-                System Live
-              </span>
-              <span style={{ fontSize: '0.725rem', color: '#64748b' }}>
-                Supabase Connected
-              </span>
-            </div>
+            {!isDesktopCollapsed && (
+              <div className="system-status-text" style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
+                  System Live
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  Supabase Connected
+                </span>
+              </div>
+            )}
           </div>
         </div>
+
+        <style>{`
+          @media (max-width: 768px) {
+            .desktop-collapse-btn {
+              display: none !important;
+            }
+          }
+          @media (min-width: 769px) {
+            .mobile-close-btn {
+              display: none !important;
+            }
+          }
+        `}</style>
       </aside>
     </>
   );

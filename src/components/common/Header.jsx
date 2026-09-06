@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Clock, Calendar, PlusCircle } from 'lucide-react';
+import { Menu, Clock, Calendar, PlusCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from './Button.jsx';
 
-export const Header = ({ onToggleMobile }) => {
+export const Header = ({
+  onToggleMobile,
+  isDesktopCollapsed,
+  onToggleDesktopCollapse,
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [time, setTime] = useState(new Date());
@@ -44,14 +48,26 @@ export const Header = ({ onToggleMobile }) => {
   return (
     <header className="header">
       <div className="header-left">
+        {/* Mobile Hamburger Button */}
         <button
           onClick={onToggleMobile}
           className="btn-icon mobile-menu-btn"
           style={{ display: 'none' }}
-          aria-label="Toggle navigation"
+          aria-label="Toggle mobile menu"
         >
           <Menu size={20} />
         </button>
+
+        {/* Desktop Sidebar Toggle Button */}
+        <button
+          onClick={onToggleDesktopCollapse}
+          className="btn-icon desktop-toggle-btn"
+          title={isDesktopCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          aria-label={isDesktopCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+        >
+          {isDesktopCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
+
         <div>
           <h1 className="header-title">{pageInfo.title}</h1>
           <p className="header-subtitle">{pageInfo.subtitle}</p>
@@ -94,6 +110,9 @@ export const Header = ({ onToggleMobile }) => {
         @media (max-width: 768px) {
           .mobile-menu-btn {
             display: flex !important;
+          }
+          .desktop-toggle-btn {
+            display: none !important;
           }
           .live-clock {
             display: none !important;

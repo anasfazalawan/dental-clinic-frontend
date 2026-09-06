@@ -1,14 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   CalendarDays,
   PlusCircle,
   Search,
-  Filter,
-  Calendar,
   AlertCircle,
-  Clock,
-  UserCheck,
 } from 'lucide-react';
 import { AppointmentTable } from '../components/appointments/AppointmentTable.jsx';
 import { AppointmentFormModal } from '../components/appointments/AppointmentFormModal.jsx';
@@ -16,18 +12,26 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { Button } from '../components/common/Button.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
-import { appointmentService } from '../services/appointmentService.js';
-import { doctorService } from '../services/doctorService.js';
-import { useToast } from '../context/ToastContext.jsx';
+import { useAppointments } from '../hooks/useAppointments.js';
 
 export const AppointmentsPage = () => {
-  const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [appointments, setAppointments] = useState([]);
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Custom hook for appointments data, loading, and mutations
+  const {
+    appointments,
+    doctors,
+    loading,
+    error,
+    actionLoading,
+    serverConflictError,
+    fetchAppointments,
+    createAppointment,
+    updateAppointment,
+    updateStatus,
+    deleteAppointment,
+    clearConflictError,
+  } = useAppointments();
 
   // Filters
   const [search, setSearch] = useState('');
@@ -40,123 +44,72 @@ export const AppointmentsPage = () => {
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [editTargetAppointment, setEditTargetAppointment] = useState(null);
   const [deleteTargetAppointment, setDeleteTargetAppointment] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [serverConflictError, setServerConflictError] = useState(null);
 
   // Check URL query params for ?action=new
   useEffect(() => {
     if (searchParams.get('action') === 'new') {
+      clearConflictError();
       setIsBookModalOpen(true);
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, clearConflictError]);
 
-  const fetchAppointments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = {};
-      if (search.trim()) params.search = search.trim();
-      if (selectedDoctorId !== 'All') params.doctorId = selectedDoctorId;
-      if (selectedStatus !== 'All') params.status = selectedStatus;
+  // Build filter parameters
+  const getFilterParams = () => {
+    const params = {};
+    if (search.trim()) params.search = search.trim();
+    if (selectedDoctorId !== 'All') params.doctorId = selectedDoctorId;
+    if (selectedStatus !== 'All') params.status = selectedStatus;
 
-      // Date filtering logic
-      const now = new Date();
-      if (dateFilter === 'today') {
-        params.date = now.toISOString().split('T')[0];
-      } else if (dateFilter === 'tomorrow') {
-        const tmrw = new Date();
-        tmrw.setDate(now.getDate() + 1);
-        params.date = tmrw.toISOString().split('T')[0];
-      } else if (dateFilter === 'upcoming') {
-        params.startDate = now.toISOString().split('T')[0];
-      } else if (dateFilter === 'custom' && customDate) {
-        params.date = customDate;
-      }
-
-      const [aptsData, docsData] = await Promise.all([
-        appointmentService.getAppointments(params),
-        doctorService.getDoctors(),
-      ]);
-
-      setAppointments(aptsData);
-      setDoctors(docsData);
-    } catch (err) {
-      setError(err.message || 'Failed to load appointments');
-      showToast(err.message || 'Unable to connect to appointments service', 'error');
-    } finally {
-      setLoading(false);
+    const now = new Date();
+    if (dateFilter === 'today') {
+      params.date = now.toISOString().split('T')[0];
+    } else if (dateFilter === 'tomorrow') {
+      const tmrw = new Date();
+      tmrw.setDate(now.getDate() + 1);
+      params.date = tmrw.toISOString().split('T')[0];
+    } else if (dateFilter === 'upcoming') {
+      params.startDate = now.toISOString().split('T')[0];
+    } else if (dateFilter === 'custom' && customDate) {
+      params.date = customDate;
     }
-  }, [search, selectedDoctorId, selectedStatus, dateFilter, customDate, showToast]);
+    return params;
+  };
 
+  // Fetch when filters change
   useEffect(() => {
-    fetchAppointments();
-  }, [fetchAppointments]);
+    fetchAppointments(getFilterParams());
+  }, [search, selectedDoctorId, selectedStatus, dateFilter, customDate, fetchAppointments]);
 
-  // Create Appointment
+  // Handle Book
   const handleCreateAppointment = async (formData) => {
-    setActionLoading(true);
-    setServerConflictError(null);
-    try {
-      await appointmentService.createAppointment(formData);
-      showToast('Appointment successfully booked!', 'success');
+    const result = await createAppointment(formData, getFilterParams());
+    if (result.success) {
       setIsBookModalOpen(false);
-      fetchAppointments();
-    } catch (err) {
-      if (err.statusCode === 409) {
-        setServerConflictError(err.message);
-      }
-      showToast(err.message || 'Failed to schedule appointment', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  // Edit Appointment
+  // Handle Edit
   const handleUpdateAppointment = async (formData) => {
     if (!editTargetAppointment?.id) return;
-    setActionLoading(true);
-    setServerConflictError(null);
-    try {
-      await appointmentService.updateAppointment(editTargetAppointment.id, formData);
-      showToast('Appointment successfully updated', 'success');
+    const result = await updateAppointment(editTargetAppointment.id, formData, getFilterParams());
+    if (result.success) {
       setEditTargetAppointment(null);
-      fetchAppointments();
-    } catch (err) {
-      if (err.statusCode === 409) {
-        setServerConflictError(err.message);
-      }
-      showToast(err.message || 'Failed to update appointment', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  // Status Change
+  // Handle Status Quick Change
   const handleStatusChange = async (appointmentId, newStatus) => {
-    try {
-      await appointmentService.updateStatus(appointmentId, newStatus);
-      showToast(`Appointment status updated to ${newStatus}`, 'success');
-      fetchAppointments();
-    } catch (err) {
-      showToast(err.message || 'Failed to update status', 'error');
-    }
+    await updateStatus(appointmentId, newStatus, getFilterParams());
   };
 
-  // Delete Appointment
+  // Handle Delete
   const handleConfirmDelete = async () => {
     if (!deleteTargetAppointment?.id) return;
-    setActionLoading(true);
-    try {
-      await appointmentService.deleteAppointment(deleteTargetAppointment.id);
-      showToast('Appointment cancelled and removed', 'success');
+    const result = await deleteAppointment(deleteTargetAppointment.id, getFilterParams());
+    if (result.success) {
       setDeleteTargetAppointment(null);
-      fetchAppointments();
-    } catch (err) {
-      showToast(err.message || 'Failed to delete appointment', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -184,7 +137,7 @@ export const AppointmentsPage = () => {
 
         <Button
           onClick={() => {
-            setServerConflictError(null);
+            clearConflictError();
             setIsBookModalOpen(true);
           }}
           icon={PlusCircle}
@@ -314,7 +267,7 @@ export const AppointmentsPage = () => {
           title="Error Loading Appointments"
           description={error}
           actionLabel="Retry"
-          onAction={fetchAppointments}
+          onAction={() => fetchAppointments(getFilterParams())}
         />
       ) : appointments.length === 0 ? (
         <EmptyState
@@ -327,7 +280,7 @@ export const AppointmentsPage = () => {
           }
           actionLabel="Schedule First Appointment"
           onAction={() => {
-            setServerConflictError(null);
+            clearConflictError();
             setIsBookModalOpen(true);
           }}
         />
@@ -336,7 +289,7 @@ export const AppointmentsPage = () => {
           appointments={appointments}
           onEdit={(apt) => {
             setEditTargetAppointment(apt);
-            setServerConflictError(null);
+            clearConflictError();
           }}
           onDelete={(apt) => setDeleteTargetAppointment(apt)}
           onStatusChange={handleStatusChange}
@@ -346,7 +299,10 @@ export const AppointmentsPage = () => {
       {/* Book New Appointment Modal */}
       <AppointmentFormModal
         isOpen={isBookModalOpen}
-        onClose={() => setIsBookModalOpen(false)}
+        onClose={() => {
+          setIsBookModalOpen(false);
+          clearConflictError();
+        }}
         onSubmit={handleCreateAppointment}
         doctors={doctors.filter((d) => d.isActive)}
         loading={actionLoading}
@@ -358,7 +314,7 @@ export const AppointmentsPage = () => {
         isOpen={Boolean(editTargetAppointment)}
         onClose={() => {
           setEditTargetAppointment(null);
-          setServerConflictError(null);
+          clearConflictError();
         }}
         onSubmit={handleUpdateAppointment}
         initialData={editTargetAppointment}
