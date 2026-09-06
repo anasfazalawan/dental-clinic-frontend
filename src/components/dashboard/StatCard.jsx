@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo } from 'react';
 import clsx from 'clsx';
 
-export const StatCard = ({
+export const StatCard = memo(({
   label,
   value,
   icon: Icon,
@@ -23,4 +23,6 @@ export const StatCard = ({
       )}
     </div>
   );
-};
+});
+
+StatCard.displayName = 'StatCard';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   CalendarDays,
@@ -62,77 +62,107 @@ export const AppointmentsPage = () => {
     }
   }, [searchParams, setSearchParams, clearConflictError]);
 
-  // Build filter parameters
-  const getFilterParams = (pageOverride = null) => {
-    const params = {
-      page: pageOverride !== null ? pageOverride : pagination.page,
-      limit: pagination.limit,
-    };
-    if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-    if (selectedDoctorId !== 'All') params.doctorId = selectedDoctorId;
-    if (selectedStatus !== 'All') params.status = selectedStatus;
+  // Build filter parameters with useCallback
+  const getFilterParams = useCallback(
+    (pageOverride = null) => {
+      const params = {
+        page: pageOverride !== null ? pageOverride : pagination.page,
+        limit: pagination.limit,
+      };
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (selectedDoctorId !== 'All') params.doctorId = selectedDoctorId;
+      if (selectedStatus !== 'All') params.status = selectedStatus;
 
-    const now = new Date();
-    if (dateFilter === 'today') {
-      params.date = now.toISOString().split('T')[0];
-    } else if (dateFilter === 'tomorrow') {
-      const tmrw = new Date();
-      tmrw.setDate(now.getDate() + 1);
-      params.date = tmrw.toISOString().split('T')[0];
-    } else if (dateFilter === 'upcoming') {
-      params.startDate = now.toISOString().split('T')[0];
-    } else if (dateFilter === 'custom' && customDate) {
-      params.date = customDate;
-    }
-    return params;
-  };
+      const now = new Date();
+      if (dateFilter === 'today') {
+        params.date = now.toISOString().split('T')[0];
+      } else if (dateFilter === 'tomorrow') {
+        const tmrw = new Date();
+        tmrw.setDate(now.getDate() + 1);
+        params.date = tmrw.toISOString().split('T')[0];
+      } else if (dateFilter === 'upcoming') {
+        params.startDate = now.toISOString().split('T')[0];
+      } else if (dateFilter === 'custom' && customDate) {
+        params.date = customDate;
+      }
+      return params;
+    },
+    [pagination.page, pagination.limit, debouncedSearch, selectedDoctorId, selectedStatus, dateFilter, customDate]
+  );
 
   // Fetch when filters or page size change (resets to page 1)
   useEffect(() => {
     fetchAppointments(getFilterParams(1));
-  }, [debouncedSearch, selectedDoctorId, selectedStatus, dateFilter, customDate, pagination.limit]);
+  }, [debouncedSearch, selectedDoctorId, selectedStatus, dateFilter, customDate, pagination.limit, fetchAppointments, getFilterParams]);
 
   // Handle page change
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-    fetchAppointments(getFilterParams(newPage));
-  };
+  const handlePageChange = useCallback(
+    (newPage) => {
+      setPage(newPage);
+      fetchAppointments(getFilterParams(newPage));
+    },
+    [setPage, fetchAppointments, getFilterParams]
+  );
 
   // Handle page size change
-  const handlePageSizeChange = (newLimit) => {
-    setLimit(newLimit);
-  };
+  const handlePageSizeChange = useCallback(
+    (newLimit) => {
+      setLimit(newLimit);
+    },
+    [setLimit]
+  );
 
   // Handle Book
-  const handleCreateAppointment = async (formData) => {
-    const result = await createAppointment(formData, getFilterParams());
-    if (result.success) {
-      setIsBookModalOpen(false);
-    }
-  };
+  const handleCreateAppointment = useCallback(
+    async (formData) => {
+      const result = await createAppointment(formData, getFilterParams());
+      if (result.success) {
+        setIsBookModalOpen(false);
+      }
+    },
+    [createAppointment, getFilterParams]
+  );
 
   // Handle Edit
-  const handleUpdateAppointment = async (formData) => {
-    if (!editTargetAppointment?.id) return;
-    const result = await updateAppointment(editTargetAppointment.id, formData, getFilterParams());
-    if (result.success) {
-      setEditTargetAppointment(null);
-    }
-  };
+  const handleUpdateAppointment = useCallback(
+    async (formData) => {
+      if (!editTargetAppointment?.id) return;
+      const result = await updateAppointment(editTargetAppointment.id, formData, getFilterParams());
+      if (result.success) {
+        setEditTargetAppointment(null);
+      }
+    },
+    [editTargetAppointment, updateAppointment, getFilterParams]
+  );
 
   // Handle Status Quick Change
-  const handleStatusChange = async (appointmentId, newStatus) => {
-    await updateStatus(appointmentId, newStatus, getFilterParams());
-  };
+  const handleStatusChange = useCallback(
+    async (appointmentId, newStatus) => {
+      await updateStatus(appointmentId, newStatus, getFilterParams());
+    },
+    [updateStatus, getFilterParams]
+  );
 
   // Handle Delete
-  const handleConfirmDelete = async () => {
-    if (!deleteTargetAppointment?.id) return;
-    const result = await deleteAppointment(deleteTargetAppointment.id, getFilterParams());
-    if (result.success) {
-      setDeleteTargetAppointment(null);
-    }
-  };
+  const handleConfirmDelete = useCallback(
+    async () => {
+      if (!deleteTargetAppointment?.id) return;
+      const result = await deleteAppointment(deleteTargetAppointment.id, getFilterParams());
+      if (result.success) {
+        setDeleteTargetAppointment(null);
+      }
+    },
+    [deleteTargetAppointment, deleteAppointment, getFilterParams]
+  );
+
+  const handleEditClick = useCallback((apt) => {
+    setEditTargetAppointment(apt);
+    clearConflictError();
+  }, [clearConflictError]);
+
+  const handleDeleteClick = useCallback((apt) => {
+    setDeleteTargetAppointment(apt);
+  }, []);
 
   return (
     <div>
@@ -309,11 +339,8 @@ export const AppointmentsPage = () => {
         <>
           <AppointmentTable
             appointments={appointments}
-            onEdit={(apt) => {
-              setEditTargetAppointment(apt);
-              clearConflictError();
-            }}
-            onDelete={(apt) => setDeleteTargetAppointment(apt)}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
             onStatusChange={handleStatusChange}
           />
 

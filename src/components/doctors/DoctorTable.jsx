@@ -1,8 +1,8 @@
-import React from 'react';
-import { Edit2, Trash2, Eye, Star, MapPin } from 'lucide-react';
+import React, { memo } from 'react';
+import { Edit2, Trash2, Eye, Star } from 'lucide-react';
 import { Badge } from '../common/Badge.jsx';
 
-export const DoctorTable = ({
+export const DoctorTable = memo(({
   doctors,
   onEdit,
   onDelete,
@@ -47,7 +47,11 @@ export const DoctorTable = ({
                       <img
                         src={doctor.avatarUrl}
                         alt={doctor.name}
+                        loading="lazy"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
                       />
                     ) : (
                       doctor.name.substring(0, 2).toUpperCase()
@@ -117,6 +121,7 @@ export const DoctorTable = ({
               <td style={{ textAlign: 'right' }}>
                 <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
                   <button
+                    type="button"
                     onClick={() => onViewDetails(doctor)}
                     className="btn-icon"
                     title="View Details"
@@ -124,6 +129,7 @@ export const DoctorTable = ({
                     <Eye size={15} />
                   </button>
                   <button
+                    type="button"
                     onClick={() => onEdit(doctor)}
                     className="btn-icon"
                     title="Edit Doctor"
@@ -131,6 +137,7 @@ export const DoctorTable = ({
                     <Edit2 size={15} />
                   </button>
                   <button
+                    type="button"
                     onClick={() => onDelete(doctor)}
                     className="btn-icon"
                     style={{ color: '#ef4444' }}
@@ -146,4 +153,6 @@ export const DoctorTable = ({
       </table>
     </div>
   );
-};
+});
+
+DoctorTable.displayName = 'DoctorTable';

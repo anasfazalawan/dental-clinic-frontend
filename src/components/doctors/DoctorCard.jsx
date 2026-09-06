@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   Phone,
   Mail,
@@ -9,18 +9,24 @@ import {
   Trash2,
   Eye,
   MapPin,
-  CheckCircle2,
-  XCircle,
 } from 'lucide-react';
 import { Badge } from '../common/Badge.jsx';
-import { Button } from '../common/Button.jsx';
 
-export const DoctorCard = ({
+const DAY_MAP = {
+  Monday: 'Mon',
+  Tuesday: 'Tue',
+  Wednesday: 'Wed',
+  Thursday: 'Thu',
+  Friday: 'Fri',
+  Saturday: 'Sat',
+  Sunday: 'Sun',
+};
+
+export const DoctorCard = memo(({
   doctor,
   onEdit,
   onDelete,
   onViewDetails,
-  onToggleStatus,
 }) => {
   const getInitials = (name) => {
     if (!name) return 'DR';
@@ -34,16 +40,7 @@ export const DoctorCard = ({
   };
 
   const shortDays = (days = []) => {
-    const map = {
-      Monday: 'Mon',
-      Tuesday: 'Tue',
-      Wednesday: 'Wed',
-      Thursday: 'Thu',
-      Friday: 'Fri',
-      Saturday: 'Sat',
-      Sunday: 'Sun',
-    };
-    return days.map((d) => map[d] || d);
+    return days.map((d) => DAY_MAP[d] || d);
   };
 
   return (
@@ -82,6 +79,7 @@ export const DoctorCard = ({
               <img
                 src={doctor.avatarUrl}
                 alt={doctor.name}
+                loading="lazy"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 onError={(e) => {
                   e.target.style.display = 'none';
@@ -215,6 +213,7 @@ export const DoctorCard = ({
         }}
       >
         <button
+          type="button"
           onClick={() => onViewDetails(doctor)}
           style={{
             background: 'none',
@@ -234,6 +233,7 @@ export const DoctorCard = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button
+            type="button"
             onClick={() => onEdit(doctor)}
             className="btn-icon"
             title="Edit Doctor"
@@ -242,6 +242,7 @@ export const DoctorCard = ({
             <Edit2 size={15} />
           </button>
           <button
+            type="button"
             onClick={() => onDelete(doctor)}
             className="btn-icon"
             style={{ color: '#ef4444' }}
@@ -254,4 +255,6 @@ export const DoctorCard = ({
       </div>
     </div>
   );
-};
+});
+
+DoctorCard.displayName = 'DoctorCard';

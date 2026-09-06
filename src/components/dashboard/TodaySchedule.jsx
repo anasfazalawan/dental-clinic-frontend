@@ -1,13 +1,11 @@
-import React from 'react';
-import { Clock, User, CalendarDays, CheckCircle2 } from 'lucide-react';
-import { Badge } from '../common/Badge.jsx';
+import React, { memo } from 'react';
+import { Clock, CalendarDays, CheckCircle2 } from 'lucide-react';
 import { QuickStatusSelect } from '../appointments/QuickStatusSelect.jsx';
 import { formatTime } from '../../utils/formatters.js';
 
-export const TodaySchedule = ({
+export const TodaySchedule = memo(({
   schedule = [],
   onStatusChange,
-  onBookAppointment,
 }) => {
   return (
     <div className="card" style={{ height: '100%' }}>
@@ -104,4 +102,6 @@ export const TodaySchedule = ({
       </div>
     </div>
   );
-};
+});
+
+TodaySchedule.displayName = 'TodaySchedule';

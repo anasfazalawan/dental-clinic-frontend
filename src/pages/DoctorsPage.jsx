@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   UserPlus,
   Search,
@@ -61,81 +61,119 @@ export const DoctorsPage = () => {
   const [appointmentActionLoading, setAppointmentActionLoading] = useState(false);
 
   // Helper to build filter query object
-  const buildQueryParams = (pageOverride = null) => {
-    const params = {
-      page: pageOverride !== null ? pageOverride : pagination.page,
-      limit: pagination.limit,
-    };
-    if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-    if (selectedSpec !== 'All') params.specialization = selectedSpec;
-    if (statusFilter !== 'All') params.isActive = statusFilter === 'active';
-    return params;
-  };
+  const buildQueryParams = useCallback(
+    (pageOverride = null) => {
+      const params = {
+        page: pageOverride !== null ? pageOverride : pagination.page,
+        limit: pagination.limit,
+      };
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (selectedSpec !== 'All') params.specialization = selectedSpec;
+      if (statusFilter !== 'All') params.isActive = statusFilter === 'active';
+      return params;
+    },
+    [pagination.page, pagination.limit, debouncedSearch, selectedSpec, statusFilter]
+  );
 
   // Trigger search / filter changes (resets to page 1)
   useEffect(() => {
     fetchDoctors(buildQueryParams(1));
-  }, [debouncedSearch, selectedSpec, statusFilter, pagination.limit]);
+  }, [debouncedSearch, selectedSpec, statusFilter, pagination.limit, fetchDoctors, buildQueryParams]);
 
   // Handle page change
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-    fetchDoctors(buildQueryParams(newPage));
-  };
+  const handlePageChange = useCallback(
+    (newPage) => {
+      setPage(newPage);
+      fetchDoctors(buildQueryParams(newPage));
+    },
+    [setPage, fetchDoctors, buildQueryParams]
+  );
 
   // Handle page size change
-  const handlePageSizeChange = (newLimit) => {
-    setLimit(newLimit);
-  };
+  const handlePageSizeChange = useCallback(
+    (newLimit) => {
+      setLimit(newLimit);
+    },
+    [setLimit]
+  );
 
   // Handle Add Doctor
-  const handleCreateDoctor = async (formData) => {
-    const result = await createDoctor(formData, buildQueryParams());
-    if (result.success) {
-      setIsAddModalOpen(false);
-    }
-  };
+  const handleCreateDoctor = useCallback(
+    async (formData) => {
+      const result = await createDoctor(formData, buildQueryParams());
+      if (result.success) {
+        setIsAddModalOpen(false);
+      }
+    },
+    [createDoctor, buildQueryParams]
+  );
 
   // Handle Edit Doctor
-  const handleUpdateDoctor = async (formData) => {
-    if (!editTargetDoctor?.id) return;
-    const result = await updateDoctor(editTargetDoctor.id, formData, buildQueryParams());
-    if (result.success) {
-      setEditTargetDoctor(null);
-    }
-  };
+  const handleUpdateDoctor = useCallback(
+    async (formData) => {
+      if (!editTargetDoctor?.id) return;
+      const result = await updateDoctor(editTargetDoctor.id, formData, buildQueryParams());
+      if (result.success) {
+        setEditTargetDoctor(null);
+      }
+    },
+    [editTargetDoctor, updateDoctor, buildQueryParams]
+  );
 
   // Handle Delete Doctor
-  const handleConfirmDelete = async () => {
-    if (!deleteTargetDoctor?.id) return;
-    const result = await deleteDoctor(deleteTargetDoctor, buildQueryParams());
-    if (result.success) {
-      setDeleteTargetDoctor(null);
-    }
-  };
+  const handleConfirmDelete = useCallback(
+    async () => {
+      if (!deleteTargetDoctor?.id) return;
+      const result = await deleteDoctor(deleteTargetDoctor, buildQueryParams());
+      if (result.success) {
+        setDeleteTargetDoctor(null);
+      }
+    },
+    [deleteTargetDoctor, deleteDoctor, buildQueryParams]
+  );
 
   // Book appointment with doctor from modal
-  const handleBookWithDoctor = (doctor) => {
+  const handleBookWithDoctor = useCallback((doctor) => {
     setBookDoctorTarget(doctor);
     setServerConflictError(null);
-  };
+  }, []);
 
-  const handleCreateAppointment = async (payload) => {
-    setAppointmentActionLoading(true);
-    setServerConflictError(null);
-    try {
-      await appointmentService.createAppointment(payload);
-      showToast('Appointment successfully scheduled!', 'success');
-      setBookDoctorTarget(null);
-    } catch (err) {
-      if (err.statusCode === 409) {
-        setServerConflictError(err.message);
+  const handleCreateAppointment = useCallback(
+    async (payload) => {
+      setAppointmentActionLoading(true);
+      setServerConflictError(null);
+      try {
+        await appointmentService.createAppointment(payload);
+        showToast('Appointment successfully scheduled!', 'success');
+        setBookDoctorTarget(null);
+      } catch (err) {
+        if (err.statusCode === 409) {
+          setServerConflictError(err.message);
+        }
+        showToast(err.message || 'Failed to schedule appointment', 'error');
+      } finally {
+        setAppointmentActionLoading(false);
       }
-      showToast(err.message || 'Failed to schedule appointment', 'error');
-    } finally {
-      setAppointmentActionLoading(false);
-    }
-  };
+    },
+    [showToast]
+  );
+
+  const handleEditClick = useCallback(
+    (doc) => {
+      clearServerError();
+      setEditTargetDoctor(doc);
+    },
+    [clearServerError]
+  );
+
+  const handleDeleteClick = useCallback((doc) => {
+    setDeleteTargetDoctor(doc);
+  }, []);
+
+  const handleViewDetailsClick = useCallback((docIdOrDoc) => {
+    const id = typeof docIdOrDoc === 'string' ? docIdOrDoc : docIdOrDoc?.id;
+    setViewDoctorId(id);
+  }, []);
 
   return (
     <div>
@@ -331,24 +369,18 @@ export const DoctorsPage = () => {
                 <DoctorCard
                   key={doctor.id}
                   doctor={doctor}
-                  onEdit={(doc) => {
-                    clearServerError();
-                    setEditTargetDoctor(doc);
-                  }}
-                  onDelete={(doc) => setDeleteTargetDoctor(doc)}
-                  onViewDetails={(doc) => setViewDoctorId(doc.id)}
+                  onEdit={handleEditClick}
+                  onDelete={handleDeleteClick}
+                  onViewDetails={handleViewDetailsClick}
                 />
               ))}
             </div>
           ) : (
             <DoctorTable
               doctors={doctors}
-              onEdit={(doc) => {
-                clearServerError();
-                setEditTargetDoctor(doc);
-              }}
-              onDelete={(doc) => setDeleteTargetDoctor(doc)}
-              onViewDetails={(doc) => setViewDoctorId(doc.id)}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+              onViewDetails={handleViewDetailsClick}
             />
           )}
 

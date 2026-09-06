@@ -1,19 +1,15 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   Calendar,
   Clock,
-  User,
   Edit2,
   Trash2,
   Phone,
-  Mail,
-  FileText,
-  AlertCircle,
 } from 'lucide-react';
 import { QuickStatusSelect } from './QuickStatusSelect.jsx';
 import { formatDate, formatTime } from '../../utils/formatters.js';
 
-export const AppointmentTable = ({
+export const AppointmentTable = memo(({
   appointments,
   onEdit,
   onDelete,
@@ -169,6 +165,7 @@ export const AppointmentTable = ({
               <td style={{ textAlign: 'right' }}>
                 <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
                   <button
+                    type="button"
                     onClick={() => onEdit(apt)}
                     className="btn-icon"
                     title="Edit Appointment"
@@ -177,6 +174,7 @@ export const AppointmentTable = ({
                     <Edit2 size={15} />
                   </button>
                   <button
+                    type="button"
                     onClick={() => onDelete(apt)}
                     className="btn-icon"
                     style={{ color: '#ef4444' }}
@@ -193,4 +191,6 @@ export const AppointmentTable = ({
       </table>
     </div>
   );
-};
+});
+
+AppointmentTable.displayName = 'AppointmentTable';
