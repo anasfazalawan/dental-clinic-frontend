@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { Button } from '../components/common/Button.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
+import { TableSkeleton } from '../components/common/Skeleton.jsx';
 import { Pagination } from '../components/common/Pagination.jsx';
 import { useAppointments } from '../hooks/useAppointments.js';
 import { useDebounce } from '../hooks/useDebounce.js';
@@ -311,7 +312,19 @@ export const AppointmentsPage = () => {
 
       {/* Main Content */}
       {loading ? (
-        <LoadingSpinner text="Loading appointments..." />
+        <TableSkeleton
+          rows={6}
+          columns={7}
+          headers={[
+            'Patient Details',
+            'Attending Doctor',
+            'Date & Time',
+            'Duration',
+            'Treatment / Reason',
+            'Status',
+            'Actions',
+          ]}
+        />
       ) : error ? (
         <EmptyState
           icon={AlertCircle}

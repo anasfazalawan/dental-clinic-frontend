@@ -16,6 +16,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { Button } from '../components/common/Button.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
+import { DoctorCardGridSkeleton, TableSkeleton } from '../components/common/Skeleton.jsx';
 import { Pagination } from '../components/common/Pagination.jsx';
 import { useDoctors } from '../hooks/useDoctors.js';
 import { useDebounce } from '../hooks/useDebounce.js';
@@ -331,7 +332,23 @@ export const DoctorsPage = () => {
 
       {/* Main Content Area */}
       {loading ? (
-        <LoadingSpinner text="Loading doctors..." />
+        viewMode === 'grid' ? (
+          <DoctorCardGridSkeleton count={6} />
+        ) : (
+          <TableSkeleton
+            rows={6}
+            columns={7}
+            headers={[
+              'Doctor Name',
+              'Specialization',
+              'Availability',
+              'Working Hours',
+              'Contact',
+              'Status',
+              'Actions',
+            ]}
+          />
+        )
       ) : error ? (
         <EmptyState
           icon={AlertCircle}

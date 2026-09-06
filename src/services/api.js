@@ -1,9 +1,6 @@
-/**
- * DentPulse API Client
- * Centralized fetch client with base URL, timeout, and structured error handling.
- */
+import { env } from '../config/env.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = env.API_BASE_URL;
 
 export class ApiError extends Error {
   constructor(message, statusCode, details = null) {
