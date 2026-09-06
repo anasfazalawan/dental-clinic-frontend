@@ -93,6 +93,14 @@ export const DoctorsPage = () => {
     [setPage, fetchDoctors, buildQueryParams]
   );
 
+  // Handle page size change
+  const handlePageSizeChange = useCallback(
+    (newLimit) => {
+      setLimit(newLimit);
+    },
+    [setLimit]
+  );
+
   // Check if any search or filter is currently active
   const hasActiveFilters = Boolean(
     search.trim() || selectedSpec !== 'All' || statusFilter !== 'All'
