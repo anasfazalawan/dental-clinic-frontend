@@ -16,6 +16,7 @@ import { AppointmentFormModal } from '../components/appointments/AppointmentForm
 import { DoctorFormModal } from '../components/doctors/DoctorFormModal.jsx';
 import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
 import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
+import { DashboardSkeleton } from '../components/common/Skeleton.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { Button } from '../components/common/Button.jsx';
 import { useDashboard } from '../hooks/useDashboard.js';
@@ -128,8 +129,8 @@ export const DashboardPage = () => {
   const recentAppointments = useMemo(() => stats?.recentAppointments || [], [stats]);
   const topDoctors = useMemo(() => stats?.topDoctors || [], [stats]);
 
-  if (loading) {
-    return <LoadingSpinner text="Loading clinic dashboard..." fullPage />;
+  if (loading && !stats) {
+    return <DashboardSkeleton />;
   }
 
   if (error && !stats) {

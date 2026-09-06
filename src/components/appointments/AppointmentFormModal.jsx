@@ -16,6 +16,7 @@ import { Input, Textarea } from '../common/Input.jsx';
 import { Select } from '../common/Select.jsx';
 import { Button } from '../common/Button.jsx';
 import { appointmentService } from '../../services/appointmentService.js';
+import { useToast } from '../../context/ToastContext.jsx';
 
 // Predefined Clinical Treatment Procedures
 const PREDEFINED_REASONS = [
@@ -75,6 +76,7 @@ export const AppointmentFormModal = ({
   loading = false,
   serverConflictError = null,
 }) => {
+  const { showToast } = useToast();
   const isEdit = Boolean(initialData?.id);
 
   const getTomorrowDate = () => {
@@ -339,12 +341,18 @@ export const AppointmentFormModal = ({
     }
 
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return errs;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    const validationErrors = validate();
+    const errorKeys = Object.keys(validationErrors);
+    if (errorKeys.length > 0) {
+      const firstErrorMsg = validationErrors[errorKeys[0]];
+      showToast(firstErrorMsg, 'warning');
+      return;
+    }
 
     const finalReason =
       formData.reasonSelect === 'Other (Custom Reason)'

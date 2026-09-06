@@ -4,6 +4,7 @@ import { Modal } from '../common/Modal.jsx';
 import { Input, Textarea } from '../common/Input.jsx';
 import { Select } from '../common/Select.jsx';
 import { Button } from '../common/Button.jsx';
+import { useToast } from '../../context/ToastContext.jsx';
 
 const allDays = [
   'Monday',
@@ -34,6 +35,7 @@ export const DoctorFormModal = ({
   loading = false,
   serverError = null,
 }) => {
+  const { showToast } = useToast();
   const isEdit = Boolean(initialData?.id);
 
   const [formData, setFormData] = useState({
@@ -140,12 +142,18 @@ export const DoctorFormModal = ({
     }
 
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return errs;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    const validationErrors = validate();
+    const errorKeys = Object.keys(validationErrors);
+    if (errorKeys.length > 0) {
+      const firstErrorMsg = validationErrors[errorKeys[0]];
+      showToast(firstErrorMsg, 'warning');
+      return;
+    }
 
     const finalSpecialization =
       formData.specialization === 'Other'
