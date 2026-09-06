@@ -1,14 +1,12 @@
 import React from 'react';
-import { PlusCircle, UserPlus, RefreshCw, Database } from 'lucide-react';
+import { PlusCircle, UserPlus, RefreshCw } from 'lucide-react';
 import { Button } from '../common/Button.jsx';
 
 export const QuickActions = ({
   onBookAppointment,
   onAddDoctor,
   onRefresh,
-  onSeedData,
   refreshing = false,
-  seeding = false,
 }) => {
   return (
     <div
@@ -23,9 +21,10 @@ export const QuickActions = ({
         borderRadius: '12px',
         border: '1px solid #e2e8f0',
         marginBottom: '1.5rem',
+        boxShadow: 'var(--shadow-xs)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
           Quick Actions:
         </span>
@@ -44,19 +43,9 @@ export const QuickActions = ({
           icon={RefreshCw}
           size="sm"
           loading={refreshing}
-          title="Refresh live dashboard metrics"
+          title="Refresh live clinical data"
         >
-          Refresh
-        </Button>
-        <Button
-          onClick={onSeedData}
-          variant="outline"
-          icon={Database}
-          size="sm"
-          loading={seeding}
-          title="Repopulate sample doctors and appointments"
-        >
-          Seed Demo Data
+          Refresh Data
         </Button>
       </div>
     </div>

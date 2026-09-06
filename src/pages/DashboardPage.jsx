@@ -121,10 +121,9 @@ export const DashboardPage = () => {
           setIsDoctorModalOpen(true);
         }}
         onRefresh={() => fetchDashboardData(true)}
-        onSeedData={seedDatabase}
         refreshing={refreshing}
-        seeding={seeding}
       />
+
 
       {/* 4 Summary Metric Cards */}
       <div
