@@ -6,6 +6,9 @@ import {
   List,
   AlertCircle,
   Users,
+  SearchX,
+  RotateCcw,
+  X,
 } from 'lucide-react';
 import { DoctorCard } from '../components/doctors/DoctorCard.jsx';
 import { DoctorTable } from '../components/doctors/DoctorTable.jsx';
@@ -90,13 +93,17 @@ export const DoctorsPage = () => {
     [setPage, fetchDoctors, buildQueryParams]
   );
 
-  // Handle page size change
-  const handlePageSizeChange = useCallback(
-    (newLimit) => {
-      setLimit(newLimit);
-    },
-    [setLimit]
+  // Check if any search or filter is currently active
+  const hasActiveFilters = Boolean(
+    search.trim() || selectedSpec !== 'All' || statusFilter !== 'All'
   );
+
+  // Clear all filters
+  const handleClearFilters = useCallback(() => {
+    setSearch('');
+    setSelectedSpec('All');
+    setStatusFilter('All');
+  }, []);
 
   // Handle Add Doctor
   const handleCreateDoctor = useCallback(
@@ -287,8 +294,31 @@ export const DoctorsPage = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="form-input"
-              style={{ paddingLeft: '38px' }}
+              style={{ paddingLeft: '38px', paddingRight: search ? '36px' : '12px' }}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Clear search"
+                aria-label="Clear search input"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -358,20 +388,28 @@ export const DoctorsPage = () => {
           onAction={() => fetchDoctors(buildQueryParams())}
         />
       ) : doctors.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          title="No Doctors Found"
-          description={
-            search || selectedSpec !== 'All' || statusFilter !== 'All'
-              ? 'No doctors match your current search and filter criteria.'
-              : 'No doctors are currently in the system.'
-          }
-          actionLabel="Register First Doctor"
-          onAction={() => {
-            clearServerError();
-            setIsAddModalOpen(true);
-          }}
-        />
+        hasActiveFilters ? (
+          <EmptyState
+            icon={SearchX}
+            title="No Matching Doctors Found"
+            description="No doctors match your current search and filter criteria. Try clearing your filters or searching with different terms."
+            actionLabel="Clear All Filters"
+            actionIcon={RotateCcw}
+            onAction={handleClearFilters}
+          />
+        ) : (
+          <EmptyState
+            icon={Users}
+            title="No Doctors Registered"
+            description="No doctors are currently in the system. Get started by registering your first dental specialist."
+            actionLabel="Register First Doctor"
+            actionIcon={UserPlus}
+            onAction={() => {
+              clearServerError();
+              setIsAddModalOpen(true);
+            }}
+          />
+        )
       ) : (
         <>
           {viewMode === 'grid' ? (

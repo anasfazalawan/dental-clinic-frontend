@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users,
   CalendarCheck,
+  CalendarDays,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -285,8 +286,28 @@ export const DashboardPage = () => {
 
         <div className="card-body" style={{ padding: 0 }}>
           {recentAppointments.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
-              No appointments on record yet.
+            <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: '#f0f9ff',
+                  color: '#0ea5e9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 0.75rem',
+                }}
+              >
+                <CalendarDays size={22} />
+              </div>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+                No Recent Appointments
+              </h4>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                No patient bookings recorded yet in the clinic.
+              </p>
             </div>
           ) : (
             <AppointmentTable

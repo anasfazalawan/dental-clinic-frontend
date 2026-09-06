@@ -5,6 +5,9 @@ import {
   PlusCircle,
   Search,
   AlertCircle,
+  SearchX,
+  RotateCcw,
+  X,
 } from 'lucide-react';
 import { AppointmentTable } from '../components/appointments/AppointmentTable.jsx';
 import { AppointmentFormModal } from '../components/appointments/AppointmentFormModal.jsx';
@@ -126,6 +129,25 @@ export const AppointmentsPage = () => {
     [setLimit]
   );
 
+  // Check if any search or filter is currently active
+  const hasActiveFilters = Boolean(
+    search.trim() ||
+    selectedDoctorId !== 'All' ||
+    selectedStatus !== 'All' ||
+    dateFilter !== 'All' ||
+    customDate
+  );
+
+  // Clear all filters and reset URL params
+  const handleClearFilters = useCallback(() => {
+    setSearch('');
+    setSelectedDoctorId('All');
+    setSelectedStatus('All');
+    setDateFilter('All');
+    setCustomDate('');
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
+
   // Handle Book
   const handleCreateAppointment = useCallback(
     async (formData) => {
@@ -241,8 +263,31 @@ export const AppointmentsPage = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="form-input"
-              style={{ paddingLeft: '38px' }}
+              style={{ paddingLeft: '38px', paddingRight: search ? '36px' : '12px' }}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Clear search"
+                aria-label="Clear search input"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -347,20 +392,28 @@ export const AppointmentsPage = () => {
           onAction={() => fetchAppointments(getFilterParams())}
         />
       ) : appointments.length === 0 ? (
-        <EmptyState
-          icon={CalendarDays}
-          title="No Appointments Found"
-          description={
-            search || selectedDoctorId !== 'All' || selectedStatus !== 'All' || dateFilter !== 'All'
-              ? 'No appointments matched your search and filter criteria.'
-              : 'There are currently no appointments booked.'
-          }
-          actionLabel="Schedule First Appointment"
-          onAction={() => {
-            clearConflictError();
-            setIsBookModalOpen(true);
-          }}
-        />
+        hasActiveFilters ? (
+          <EmptyState
+            icon={SearchX}
+            title="No Matching Appointments Found"
+            description="No appointments matched your search and filter criteria. Try adjusting your dates, status, or search terms."
+            actionLabel="Clear All Filters"
+            actionIcon={RotateCcw}
+            onAction={handleClearFilters}
+          />
+        ) : (
+          <EmptyState
+            icon={CalendarDays}
+            title="No Appointments Scheduled"
+            description="There are currently no patient appointments booked in the system."
+            actionLabel="Schedule First Appointment"
+            actionIcon={PlusCircle}
+            onAction={() => {
+              clearConflictError();
+              setIsBookModalOpen(true);
+            }}
+          />
+        )
       ) : (
         <>
           <AppointmentTable
