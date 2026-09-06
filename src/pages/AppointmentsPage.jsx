@@ -39,13 +39,13 @@ export const AppointmentsPage = () => {
     clearConflictError,
   } = useAppointments();
 
-  // Filters
-  const [search, setSearch] = useState('');
+  // Filters initialized from URL search params if present
+  const [search, setSearch] = useState(() => searchParams.get('search') || '');
   const debouncedSearch = useDebounce(search, 350);
 
-  const [selectedDoctorId, setSelectedDoctorId] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [dateFilter, setDateFilter] = useState('All'); // 'All' | 'today' | 'tomorrow' | 'upcoming' | 'custom'
+  const [selectedDoctorId, setSelectedDoctorId] = useState(() => searchParams.get('doctorId') || 'All');
+  const [selectedStatus, setSelectedStatus] = useState(() => searchParams.get('status') || 'All');
+  const [dateFilter, setDateFilter] = useState(() => searchParams.get('dateFilter') || (searchParams.get('date') === 'today' ? 'today' : 'All'));
   const [customDate, setCustomDate] = useState('');
 
   // Modals
@@ -53,13 +53,26 @@ export const AppointmentsPage = () => {
   const [editTargetAppointment, setEditTargetAppointment] = useState(null);
   const [deleteTargetAppointment, setDeleteTargetAppointment] = useState(null);
 
-  // Check URL query params for ?action=new
+  // Sync URL query params if user navigates with ?search= or ?dateFilter= or ?action=new
   useEffect(() => {
     if (searchParams.get('action') === 'new') {
       clearConflictError();
       setIsBookModalOpen(true);
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
+    }
+
+    const urlDateFilter = searchParams.get('dateFilter') || (searchParams.get('date') === 'today' ? 'today' : null);
+    if (urlDateFilter && urlDateFilter !== dateFilter) {
+      setDateFilter(urlDateFilter);
+    }
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null && urlSearch !== search) {
+      setSearch(urlSearch);
+    }
+    const urlDoctor = searchParams.get('doctorId');
+    if (urlDoctor && urlDoctor !== selectedDoctorId) {
+      setSelectedDoctorId(urlDoctor);
     }
   }, [searchParams, setSearchParams, clearConflictError]);
 

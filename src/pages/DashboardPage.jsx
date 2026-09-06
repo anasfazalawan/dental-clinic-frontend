@@ -156,11 +156,11 @@ export const DashboardPage = () => {
           meta="Future confirmed bookings"
         />
         <StatCard
-          label="Completed Treatments"
-          value={overview.completedCount || 0}
+          label="Completed Today"
+          value={overview.todayCompletedCount ?? (overview.completedCount || 0)}
           icon={CheckCircle2}
           variant="purple"
-          meta="Finished patient procedures"
+          meta="Finished visits today"
         />
       </div>
 
@@ -177,6 +177,7 @@ export const DashboardPage = () => {
         <TodaySchedule
           schedule={todaySchedule}
           onStatusChange={updateStatus}
+          onViewAll={() => navigate('/appointments?dateFilter=today')}
         />
 
         {/* Doctors on Duty / Workload Card */}
@@ -269,7 +270,7 @@ export const DashboardPage = () => {
           <div>
             <h3 className="card-title">Recent Appointments</h3>
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
-              Latest patient bookings across all clinic departments
+              Recent patient bookings and clinical appointments
             </p>
           </div>
           <Button
