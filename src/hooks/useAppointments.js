@@ -99,7 +99,7 @@ export const useAppointments = () => {
     setServerConflictError(null);
     try {
       const created = await appointmentService.createAppointment(payload);
-      showToast('Appointment successfully scheduled!', 'success');
+      showToast('Appointment successfully scheduled!', 'create');
       await fetchAppointments(currentFilters);
       return { success: true, data: created };
     } catch (err) {
@@ -119,7 +119,7 @@ export const useAppointments = () => {
     setServerConflictError(null);
     try {
       const updated = await appointmentService.updateAppointment(id, payload);
-      showToast('Appointment successfully updated!', 'success');
+      showToast('Appointment successfully updated!', 'update');
       await fetchAppointments(currentFilters);
       return { success: true, data: updated };
     } catch (err) {
@@ -137,7 +137,7 @@ export const useAppointments = () => {
   const updateStatus = async (id, newStatus, currentFilters = {}) => {
     try {
       await appointmentService.updateStatus(id, newStatus);
-      showToast(`Appointment status updated to ${newStatus}`, 'success');
+      showToast(`Appointment status updated to ${newStatus}`, 'update');
       await fetchAppointments(currentFilters);
       return { success: true };
     } catch (err) {
@@ -151,7 +151,7 @@ export const useAppointments = () => {
     setActionLoading(true);
     try {
       await appointmentService.deleteAppointment(id);
-      showToast('Appointment cancelled and removed', 'success');
+      showToast('Appointment cancelled and removed', 'delete');
       await fetchAppointments(currentFilters);
       return { success: true };
     } catch (err) {

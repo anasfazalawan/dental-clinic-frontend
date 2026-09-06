@@ -4,6 +4,7 @@ import {
   Users,
   CalendarCheck,
   Clock,
+  CheckCircle2,
   AlertCircle,
   ArrowRight,
   ShieldCheck,
@@ -14,8 +15,6 @@ import { TodaySchedule } from '../components/dashboard/TodaySchedule.jsx';
 import { AppointmentTable } from '../components/appointments/AppointmentTable.jsx';
 import { AppointmentFormModal } from '../components/appointments/AppointmentFormModal.jsx';
 import { DoctorFormModal } from '../components/doctors/DoctorFormModal.jsx';
-import { ConfirmDialog } from '../components/common/ConfirmDialog.jsx';
-import { LoadingSpinner } from '../components/common/LoadingSpinner.jsx';
 import { DashboardSkeleton } from '../components/common/Skeleton.jsx';
 import { EmptyState } from '../components/common/EmptyState.jsx';
 import { Button } from '../components/common/Button.jsx';
@@ -38,18 +37,13 @@ export const DashboardPage = () => {
     loadDoctorsList,
     updateStatus,
     createAppointment,
-    updateAppointment,
-    deleteAppointment,
     createDoctor,
     clearErrors,
   } = useDashboard();
 
-  // Modals
+  // Quick Action Modals
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
-  const [deleteAppointmentTarget, setDeleteAppointmentTarget] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -64,29 +58,6 @@ export const DashboardPage = () => {
       }
     },
     [createAppointment]
-  );
-
-  const handleEditAppointment = useCallback(
-    async (payload) => {
-      if (!selectedAppointment?.id) return;
-      const result = await updateAppointment(selectedAppointment.id, payload);
-      if (result.success) {
-        setIsEditAppointmentOpen(false);
-        setSelectedAppointment(null);
-      }
-    },
-    [selectedAppointment, updateAppointment]
-  );
-
-  const handleConfirmDeleteAppointment = useCallback(
-    async () => {
-      if (!deleteAppointmentTarget?.id) return;
-      const result = await deleteAppointment(deleteAppointmentTarget.id);
-      if (result.success) {
-        setDeleteAppointmentTarget(null);
-      }
-    },
-    [deleteAppointmentTarget, deleteAppointment]
   );
 
   // Doctor Actions with useCallback
@@ -115,14 +86,13 @@ export const DashboardPage = () => {
     fetchDashboardData(true);
   }, [fetchDashboardData]);
 
-  const handleTableEdit = useCallback((apt) => {
-    setSelectedAppointment(apt);
-    setIsEditAppointmentOpen(true);
-  }, []);
-
-  const handleTableDelete = useCallback((apt) => {
-    setDeleteAppointmentTarget(apt);
-  }, []);
+  // Navigate to Appointments hub to view, filter, edit, or delete the record
+  const handleManageAppointment = useCallback(
+    (apt) => {
+      navigate(`/appointments?search=${encodeURIComponent(apt.patientName)}`);
+    },
+    [navigate]
+  );
 
   const overview = useMemo(() => stats?.overview || {}, [stats]);
   const todaySchedule = useMemo(() => stats?.todaySchedule || [], [stats]);
@@ -165,7 +135,7 @@ export const DashboardPage = () => {
         }}
       >
         <StatCard
-          label="Total Doctors"
+          label="Total Specialists"
           value={overview.totalDoctors || 0}
           icon={Users}
           variant="primary"
@@ -186,11 +156,11 @@ export const DashboardPage = () => {
           meta="Future confirmed bookings"
         />
         <StatCard
-          label="Pending Review"
-          value={overview.pendingCount || 0}
-          icon={AlertCircle}
-          variant="amber"
-          meta="Require staff confirmation"
+          label="Completed Treatments"
+          value={overview.completedCount || 0}
+          icon={CheckCircle2}
+          variant="purple"
+          meta="Finished patient procedures"
         />
       </div>
 
@@ -299,7 +269,7 @@ export const DashboardPage = () => {
           <div>
             <h3 className="card-title">Recent Appointments</h3>
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
-              Latest patient bookings across all departments
+              Latest patient bookings across all clinic departments
             </p>
           </div>
           <Button
@@ -320,8 +290,7 @@ export const DashboardPage = () => {
           ) : (
             <AppointmentTable
               appointments={recentAppointments}
-              onEdit={handleTableEdit}
-              onDelete={handleTableDelete}
+              onManage={handleManageAppointment}
               onStatusChange={updateStatus}
             />
           )}
@@ -338,20 +307,6 @@ export const DashboardPage = () => {
         serverConflictError={serverConflictError}
       />
 
-      {/* Edit Appointment Modal */}
-      <AppointmentFormModal
-        isOpen={isEditAppointmentOpen}
-        onClose={() => {
-          setIsEditAppointmentOpen(false);
-          setSelectedAppointment(null);
-        }}
-        onSubmit={handleEditAppointment}
-        initialData={selectedAppointment}
-        doctors={doctors}
-        loading={actionLoading}
-        serverConflictError={serverConflictError}
-      />
-
       {/* Add Doctor Modal */}
       <DoctorFormModal
         isOpen={isDoctorModalOpen}
@@ -359,17 +314,6 @@ export const DashboardPage = () => {
         onSubmit={handleCreateDoctor}
         loading={actionLoading}
         serverError={doctorServerError}
-      />
-
-      {/* Delete Appointment Confirmation Modal */}
-      <ConfirmDialog
-        isOpen={Boolean(deleteAppointmentTarget)}
-        onClose={() => setDeleteAppointmentTarget(null)}
-        onConfirm={handleConfirmDeleteAppointment}
-        title="Cancel Appointment"
-        message="Are you sure you want to permanently cancel and delete this appointment?"
-        itemName={deleteAppointmentTarget ? `${deleteAppointmentTarget.patientName}` : ''}
-        loading={actionLoading}
       />
     </div>
   );

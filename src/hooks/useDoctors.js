@@ -91,7 +91,7 @@ export const useDoctors = (initialFilters = {}) => {
     setServerError(null);
     try {
       const created = await doctorService.createDoctor(payload);
-      showToast(`Dr. ${payload.name} registered successfully!`, 'success');
+      showToast(`Dr. ${payload.name} registered successfully!`, 'create');
       await fetchDoctors(currentFilters);
       return { success: true, data: created };
     } catch (err) {
@@ -109,7 +109,7 @@ export const useDoctors = (initialFilters = {}) => {
     setServerError(null);
     try {
       const updated = await doctorService.updateDoctor(id, payload);
-      showToast(`Dr. ${payload.name} profile updated successfully!`, 'success');
+      showToast(`Dr. ${payload.name} profile updated successfully!`, 'update');
       await fetchDoctors(currentFilters);
       return { success: true, data: updated };
     } catch (err) {
@@ -127,7 +127,7 @@ export const useDoctors = (initialFilters = {}) => {
     setActionLoading(true);
     try {
       await doctorService.deleteDoctor(doctor.id);
-      showToast(`Dr. ${doctor.name} removed from directory`, 'success');
+      showToast(`Dr. ${doctor.name} removed from directory`, 'delete');
       await fetchDoctors(currentFilters);
       return { success: true };
     } catch (err) {
