@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { appointmentService } from '../services/appointmentService.js';
 import { doctorService } from '../services/doctorService.js';
 import { useToast } from '../context/ToastContext.jsx';
@@ -27,7 +27,24 @@ export const useAppointments = () => {
     hasPrev: false,
   });
 
-  // Fetch appointments & doctor list
+  // Fetch doctors list once on mount
+  const fetchDoctors = useCallback(async () => {
+    try {
+      const docsRes = await doctorService.getDoctors();
+      const docsData = Array.isArray(docsRes) ? docsRes : docsRes.data || [];
+      setDoctors(docsData);
+      return docsData;
+    } catch (err) {
+      console.warn('Failed to load doctors directory for appointments filter:', err.message);
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
+
+  // Fetch appointments schedule
   const fetchAppointments = useCallback(
     async (params = {}) => {
       setLoading(true);
@@ -39,13 +56,8 @@ export const useAppointments = () => {
           ...params,
         };
 
-        const [aptsRes, docsRes] = await Promise.all([
-          appointmentService.getAppointments(queryParams),
-          doctorService.getDoctors(),
-        ]);
-
+        const aptsRes = await appointmentService.getAppointments(queryParams);
         const aptsData = Array.isArray(aptsRes) ? aptsRes : aptsRes.data || [];
-        const docsData = Array.isArray(docsRes) ? docsRes : docsRes.data || [];
         const meta = aptsRes.meta || {
           total: aptsData.length,
           count: aptsData.length,
@@ -57,14 +69,13 @@ export const useAppointments = () => {
         };
 
         setAppointments(aptsData);
-        setDoctors(docsData);
         setPagination(meta);
-        return { appointments: aptsData, doctors: docsData, meta };
+        return { appointments: aptsData, meta };
       } catch (err) {
         const msg = err.message || 'Failed to load appointments schedule';
         setError(msg);
         showToast(msg, 'error');
-        return { appointments: [], doctors: [], meta: pagination };
+        return { appointments: [], meta: pagination };
       } finally {
         setLoading(false);
       }

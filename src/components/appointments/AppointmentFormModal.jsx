@@ -216,7 +216,7 @@ export const AppointmentFormModal = ({
     const duration = Number(formData.durationMinutes) || 30;
 
     const slots = [];
-    const step = 30; // 30-minute interval grid
+    const step = 15; // 15-minute slot grid interval for flexible appointment scheduling
 
     for (let current = startMinutes; current + duration <= endMinutes; current += step) {
       const slotTime = minutesToTime(current);
