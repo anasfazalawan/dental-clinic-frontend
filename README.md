@@ -165,23 +165,39 @@ npm run preview
 
 ---
 
-## 🌐 Deploying to Render (Static Site)
+## 🌐 Live Production Deployment
 
-1. Push your frontend repository to GitHub on the `develop` (or `main`) branch.
-2. In the [Render Dashboard](https://dashboard.render.com/), click **New +** -> **Static Site**.
-3. Connect your `dental-clinic-frontend` GitHub repository.
-4. Configure settings:
+- **Live Frontend (Vercel)**: [https://dental-clinic-frontend-nine.vercel.app](https://dental-clinic-frontend-nine.vercel.app/)
+- **Live Backend API (Render)**: [https://dental-clinic-backend-ilhq.onrender.com](https://dental-clinic-backend-ilhq.onrender.com/)
+
+---
+
+## 🌐 Deploying to Vercel or Render
+
+### Option A: Deploying on Vercel (Recommended)
+1. Import your `dental-clinic-frontend` GitHub repository on [Vercel](https://vercel.com/).
+2. Framework Preset: **Vite**
+3. Build Command: `npm run build`
+4. Output Directory: `dist`
+5. Environment Variable:
+   - `VITE_API_URL`: `https://dental-clinic-backend-ilhq.onrender.com/api`
+6. Click **Deploy**.
+
+### Option B: Deploying on Render (Static Site)
+1. In the [Render Dashboard](https://dashboard.render.com/), click **New +** -> **Static Site**.
+2. Connect your `dental-clinic-frontend` GitHub repository.
+3. Configure settings:
    - **Name**: `dental-clinic-frontend`
    - **Branch**: `develop`
    - **Build Command**: `npm install && npm run build`
    - **Publish Directory**: `dist`
-5. Under **Environment Variables**, add:
-   - `VITE_API_URL`: `https://your-backend-subdomain.onrender.com/api`
-6. Under **Redirects / Rewrites**, add the SPA client-side routing rewrite rule:
+4. Under **Environment Variables**, add:
+   - `VITE_API_URL`: `https://dental-clinic-backend-ilhq.onrender.com/api`
+5. Under **Redirects / Rewrites**, add the SPA client-side routing rewrite rule:
    - **Source**: `/*`
    - **Destination**: `/index.html`
    - **Action**: `Rewrite`
-7. Click **Create Static Site**.
+6. Click **Create Static Site**.
 
 ---
 
